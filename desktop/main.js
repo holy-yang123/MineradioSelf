@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, screen, session, globalShortcut, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, screen, session, globalShortcut, dialog, Tray, Menu, nativeImage } = require('electron');
 const net = require('net');
 const path = require('path');
 const fs = require('fs');
@@ -22,6 +22,9 @@ let wallpaperState = {};
 let htmlFullscreenActive = false;
 let windowFullscreenActive = false;
 let mainWindowStateTimer = null;
+let appTray = null;
+let appSettings = { closeToTray: false };
+let appIsQuitting = false;
 const registeredGlobalHotkeys = new Map();
 
 const WINDOWED_ASPECT = 16 / 9;
@@ -266,6 +269,83 @@ function focusMainWindow() {
   mainWindow.focus();
   sendWindowState(mainWindow);
   return true;
+}
+
+function getAppSettingsPath() {
+  return path.join(app.getPath('userData'), 'app-settings.json');
+}
+
+function readAppSettings() {
+  try {
+    const filePath = getAppSettingsPath();
+    if (!fs.existsSync(filePath)) return { closeToTray: false };
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    return {
+      closeToTray: !!(parsed && parsed.closeToTray),
+    };
+  } catch (e) {
+    console.warn('App settings read failed:', e.message);
+    return { closeToTray: false };
+  }
+}
+
+function writeAppSettings(partial) {
+  if (partial && typeof partial === 'object') {
+    appSettings = { ...appSettings, ...partial };
+    if (typeof partial.closeToTray === 'boolean') appSettings.closeToTray = partial.closeToTray;
+  }
+  try {
+    fs.writeFileSync(getAppSettingsPath(), JSON.stringify(appSettings, null, 2), 'utf8');
+    return { ok: true, settings: { ...appSettings } };
+  } catch (e) {
+    return { ok: false, error: e.message || 'SETTINGS_WRITE_FAILED' };
+  }
+}
+
+function getTrayIconImage() {
+  try {
+    if (fs.existsSync(APP_ICON_ICO)) return nativeImage.createFromPath(APP_ICON_ICO);
+  } catch (e) {
+    console.warn('Tray icon load failed:', e.message);
+  }
+  return nativeImage.createEmpty();
+}
+
+function destroyAppTray() {
+  if (!appTray) return;
+  try {
+    appTray.destroy();
+  } catch (e) {
+    console.warn('Tray destroy failed:', e.message);
+  }
+  appTray = null;
+}
+
+function createAppTray() {
+  if (appTray || process.platform === 'linux') return;
+  const icon = getTrayIconImage();
+  if (icon.isEmpty()) return;
+  appTray = new Tray(icon);
+  appTray.setToolTip(APP_NAME);
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: `显示 ${APP_NAME}`,
+      click: () => focusMainWindow(),
+    },
+    { type: 'separator' },
+    {
+      label: '退出',
+      click: () => quitApp(),
+    },
+  ]);
+  appTray.setContextMenu(contextMenu);
+  appTray.on('double-click', () => focusMainWindow());
+}
+
+function quitApp() {
+  appIsQuitting = true;
+  destroyAppTray();
+  app.quit();
 }
 
 function getUpdateDownloadDir() {
@@ -1121,6 +1201,19 @@ ipcMain.handle('desktop-window-close', (event) => {
   getSenderWindow(event)?.close();
 });
 
+ipcMain.handle('mineradio-app-settings-get', () => {
+  return { ok: true, settings: { ...appSettings } };
+});
+
+ipcMain.handle('mineradio-app-settings-set', (_event, partial) => {
+  return writeAppSettings(partial || {});
+});
+
+ipcMain.handle('mineradio-app-quit', () => {
+  quitApp();
+  return { ok: true };
+});
+
 ipcMain.handle('mineradio-hotkeys-configure-global', (_event, bindings) => {
   return configureMineradioGlobalHotkeys(bindings);
 });
@@ -1193,6 +1286,8 @@ ipcMain.handle('mineradio-open-update-installer', async (_event, filePath) => {
 
 ipcMain.handle('mineradio-restart-app', async () => {
   try {
+    appIsQuitting = true;
+    destroyAppTray();
     app.relaunch();
     app.exit(0);
     return { ok: true };
@@ -1398,6 +1493,12 @@ async function createWindow() {
   mainWindow.on('blur', () => sendWindowState(mainWindow));
   mainWindow.on('move', () => scheduleWindowStateSend(mainWindow));
   mainWindow.on('resize', () => scheduleWindowStateSend(mainWindow));
+  mainWindow.on('close', (e) => {
+    if (!appIsQuitting && appSettings.closeToTray) {
+      e.preventDefault();
+      mainWindow.hide();
+    }
+  });
   mainWindow.on('closed', () => {
     if (mainWindowStateTimer) {
       clearTimeout(mainWindowStateTimer);
@@ -1439,6 +1540,7 @@ if (!gotSingleInstanceLock) {
   });
 
   app.whenReady().then(async () => {
+    appSettings = readAppSettings();
     screen.on('display-metrics-changed', () => {
       positionDesktopLyricsWindow();
       positionWallpaperWindow();
@@ -1447,6 +1549,7 @@ if (!gotSingleInstanceLock) {
     screen.on('display-added', () => scheduleWindowStateSend(mainWindow));
     screen.on('display-removed', () => scheduleWindowStateSend(mainWindow));
     await createWindow();
+    createAppTray();
   });
 
   app.on('activate', () => {
@@ -1459,6 +1562,8 @@ if (!gotSingleInstanceLock) {
   });
 
   app.on('before-quit', () => {
+    appIsQuitting = true;
+    destroyAppTray();
     unregisterMineradioGlobalHotkeys();
     closeOverlayWindows();
     if (localServer && localServer.close) localServer.close();
