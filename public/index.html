@@ -248,17 +248,96 @@ body.home-wallpaper-preview #canvas-container{filter:none}
 .home-hero::before{content:'';position:absolute;inset:0;background:linear-gradient(118deg,rgba(255,255,255,.060),transparent 24%,rgba(255,83,103,.070) 54%,rgba(122,215,194,.055) 82%,transparent 100%),linear-gradient(90deg,rgba(255,255,255,.032) 0 1px,transparent 1px 48px),linear-gradient(0deg,rgba(255,255,255,.024) 0 1px,transparent 1px 44px);opacity:.72;pointer-events:none}
 .home-hero::after{content:'';position:absolute;left:28px;right:28px;bottom:22px;height:1px;background:linear-gradient(90deg,color-mix(in srgb,var(--home-accent) 0%,transparent),color-mix(in srgb,var(--home-accent) 52%,transparent),rgba(36,66,255,.24),rgba(248,244,238,.18),color-mix(in srgb,var(--home-accent) 0%,transparent));opacity:.82;pointer-events:none}
 .home-hero-inner{position:relative;z-index:2;height:100%;display:grid;grid-template-columns:minmax(0,1.16fr) minmax(150px,.64fr);grid-template-rows:auto auto auto auto minmax(150px,1fr);column-gap:18px}
-.home-hero-inner.home-construction-inner{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:18px;padding:4px 2px;min-height:100%}
+.home-hero-inner.home-construction-inner{display:flex;flex-direction:column;justify-content:flex-start;align-items:flex-start;gap:12px;padding:10px 2px 8px;min-height:100%}
 .home-kicker{grid-column:1;font-size:10px;font-weight:780;letter-spacing:.18em;color:color-mix(in srgb,var(--home-accent) 62%,rgba(255,255,255,.36));text-transform:uppercase;margin-bottom:14px}
 .home-title{grid-column:1;font-size:clamp(34px,4.6vw,58px);line-height:.98;font-weight:760;letter-spacing:0;color:rgba(255,255,255,.98);max-width:380px;text-shadow:0 10px 36px rgba(0,0,0,.26)}
-.home-title.home-construction-title{max-width:620px;font-size:clamp(32px,4.5vw,64px);line-height:1.08}
+.home-construction-weather-card{position:relative;width:min(560px,100%);padding:15px 15px 13px;border-radius:18px;border:1px solid color-mix(in srgb,var(--home-accent) 28%,rgba(255,255,255,.14));background:linear-gradient(145deg,rgba(255,255,255,.09),rgba(255,255,255,.024));box-shadow:0 16px 38px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.12);overflow:hidden}
+.home-construction-weather-scene-wrap{position:absolute;top:10px;right:12px;width:104px;height:78px;pointer-events:none;z-index:1}
+.home-weather-scene{position:relative;width:100%;height:100%;border-radius:16px;background:linear-gradient(180deg,rgba(122,215,194,.10),rgba(36,66,255,.08) 58%,rgba(8,10,14,.18));box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 10px 28px rgba(0,0,0,.22);overflow:hidden}
+.home-weather-scene::after{content:'';position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,.10),transparent 42%,rgba(255,255,255,.04));pointer-events:none}
+.home-weather-scene__sun,.home-weather-scene__moon,.home-weather-scene__cloud,.home-weather-scene__rain,.home-weather-scene__snow,.home-weather-scene__bolt,.home-weather-scene__fog{position:absolute;opacity:0;transition:opacity .45s ease}
+.home-weather-scene__sun{top:14px;left:18px;width:28px;height:28px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff 0%,#ffe9a8 34%,#f8c45c 72%,#e89b2d 100%);box-shadow:0 0 18px rgba(255,210,120,.55),0 0 34px rgba(255,180,80,.28);animation:home-weather-sun-pulse 4.2s ease-in-out infinite}
+.home-weather-scene__sun::before{content:'';position:absolute;inset:-10px;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 10deg,rgba(255,230,150,.42) 10deg 16deg,transparent 16deg 40deg,rgba(255,230,150,.34) 40deg 46deg,transparent 46deg 70deg,rgba(255,230,150,.30) 70deg 76deg,transparent 76deg 100deg,rgba(255,230,150,.34) 100deg 106deg,transparent 106deg 130deg,rgba(255,230,150,.30) 130deg 136deg,transparent 136deg 160deg,rgba(255,230,150,.34) 160deg 166deg,transparent 166deg 190deg,rgba(255,230,150,.30) 190deg 196deg,transparent 196deg 220deg,rgba(255,230,150,.34) 220deg 226deg,transparent 226deg 250deg,rgba(255,230,150,.30) 250deg 256deg,transparent 256deg 280deg,rgba(255,230,150,.34) 280deg 286deg,transparent 286deg 310deg,rgba(255,230,150,.30) 310deg 316deg,transparent 316deg 340deg,rgba(255,230,150,.34) 340deg 346deg,transparent 346deg 360deg);animation:home-weather-sun-rays 18s linear infinite}
+.home-weather-scene__moon{top:16px;left:22px;width:24px;height:24px;border-radius:50%;background:radial-gradient(circle at 68% 32%,rgba(255,255,255,.95) 0%,rgba(220,228,240,.88) 58%,rgba(170,180,200,.72) 100%);box-shadow:0 0 16px rgba(200,214,255,.35);animation:home-weather-moon-float 5.6s ease-in-out infinite}
+.home-weather-scene__moon::after{content:'';position:absolute;top:4px;right:-3px;width:20px;height:20px;border-radius:50%;background:rgba(18,22,30,.92)}
+.home-weather-scene__cloud{width:46px;height:18px;border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(210,218,230,.78));box-shadow:18px 4px 0 -2px rgba(255,255,255,.86),-12px 6px 0 -4px rgba(230,236,244,.72),0 8px 18px rgba(0,0,0,.16)}
+.home-weather-scene__cloud--a{top:24px;left:34px;animation:home-weather-cloud-drift-a 9s ease-in-out infinite}
+.home-weather-scene__cloud--b{top:38px;left:8px;width:38px;height:15px;opacity:0;animation:home-weather-cloud-drift-b 11s ease-in-out infinite}
+.home-weather-scene__cloud--dark{background:linear-gradient(180deg,rgba(198,206,220,.92),rgba(140,150,170,.82));box-shadow:18px 4px 0 -2px rgba(170,178,194,.84),-12px 6px 0 -4px rgba(130,140,158,.72),0 10px 22px rgba(0,0,0,.28)}
+.home-weather-scene__rain{left:8px;right:8px;bottom:0;height:34px;background:repeating-linear-gradient(180deg,rgba(160,210,255,.0) 0 6px,rgba(160,210,255,.82) 6px 11px,rgba(160,210,255,.0) 11px 16px);background-size:8px 16px;mask-image:linear-gradient(180deg,transparent,black 18%);-webkit-mask-image:linear-gradient(180deg,transparent,black 18%);animation:home-weather-rain-fall 1.1s linear infinite}
+.home-weather-scene__snow{left:0;right:0;bottom:0;height:38px;background:radial-gradient(circle,rgba(255,255,255,.95) 0 1.2px,transparent 1.2px 8px);background-size:12px 14px;mask-image:linear-gradient(180deg,transparent,black 24%);-webkit-mask-image:linear-gradient(180deg,transparent,black 24%);animation:home-weather-snow-fall 2.8s linear infinite}
+.home-weather-scene__bolt{top:18px;left:48px;width:14px;height:22px;background:linear-gradient(180deg,#fff7b0,#ffd34d 42%,#f5b700 100%);clip-path:polygon(48% 0,100% 42%,58% 42%,78% 100%,0 48%,42% 48%);filter:drop-shadow(0 0 10px rgba(255,220,90,.75));animation:home-weather-bolt-flash 2.6s ease-in-out infinite}
+.home-weather-scene__fog{left:-8%;right:-8%;height:16px;border-radius:999px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.24),transparent);filter:blur(1px)}
+.home-weather-scene__fog--a{top:28px;animation:home-weather-fog-drift 7s ease-in-out infinite}
+.home-weather-scene__fog--b{top:46px;opacity:0;animation:home-weather-fog-drift 9s ease-in-out infinite reverse}
+.home-weather-scene[data-scene="loading"] .home-weather-scene__cloud--a{opacity:.42;animation:home-weather-cloud-drift-a 5s ease-in-out infinite}
+.home-weather-scene[data-scene="idle"] .home-weather-scene__cloud--a{opacity:.55}
+.home-weather-scene[data-scene="clear"] .home-weather-scene__sun{opacity:1}
+.home-weather-scene[data-scene="night-clear"] .home-weather-scene__moon{opacity:1}
+.home-weather-scene[data-scene="partly"] .home-weather-scene__sun,.home-weather-scene[data-scene="partly"] .home-weather-scene__cloud--a{opacity:1}
+.home-weather-scene[data-scene="night-partly"] .home-weather-scene__moon,.home-weather-scene[data-scene="night-partly"] .home-weather-scene__cloud--a{opacity:1}
+.home-weather-scene[data-scene="cloudy"] .home-weather-scene__cloud--a,.home-weather-scene[data-scene="cloudy"] .home-weather-scene__cloud--b{opacity:1}
+.home-weather-scene[data-scene="cloudy"] .home-weather-scene__cloud--a,.home-weather-scene[data-scene="cloudy"] .home-weather-scene__cloud--b{background:linear-gradient(180deg,rgba(220,226,236,.92),rgba(170,178,192,.78));box-shadow:18px 4px 0 -2px rgba(198,204,216,.84),-12px 6px 0 -4px rgba(160,168,182,.72),0 10px 20px rgba(0,0,0,.22)}
+.home-weather-scene[data-scene="fog"] .home-weather-scene__fog--a,.home-weather-scene[data-scene="fog"] .home-weather-scene__fog--b{opacity:.72}
+.home-weather-scene[data-scene="drizzle"] .home-weather-scene__cloud--a,.home-weather-scene[data-scene="drizzle"] .home-weather-scene__rain{opacity:1}
+.home-weather-scene[data-scene="drizzle"] .home-weather-scene__rain{opacity:.55;animation-duration:1.6s}
+.home-weather-scene[data-scene="rain"] .home-weather-scene__cloud--a,.home-weather-scene[data-scene="rain"] .home-weather-scene__cloud--b,.home-weather-scene[data-scene="rain"] .home-weather-scene__rain{opacity:1}
+.home-weather-scene[data-scene="rain"] .home-weather-scene__cloud--a,.home-weather-scene[data-scene="rain"] .home-weather-scene__cloud--b{background:linear-gradient(180deg,rgba(198,206,220,.92),rgba(140,150,170,.82));box-shadow:18px 4px 0 -2px rgba(170,178,194,.84),-12px 6px 0 -4px rgba(130,140,158,.72),0 10px 22px rgba(0,0,0,.28)}
+.home-weather-scene[data-scene="snow"] .home-weather-scene__cloud--a,.home-weather-scene[data-scene="snow"] .home-weather-scene__cloud--b,.home-weather-scene[data-scene="snow"] .home-weather-scene__snow{opacity:1}
+.home-weather-scene[data-scene="storm"] .home-weather-scene__cloud--a,.home-weather-scene[data-scene="storm"] .home-weather-scene__cloud--b,.home-weather-scene[data-scene="storm"] .home-weather-scene__rain,.home-weather-scene[data-scene="storm"] .home-weather-scene__bolt{opacity:1}
+.home-weather-scene[data-scene="storm"] .home-weather-scene__cloud--a,.home-weather-scene[data-scene="storm"] .home-weather-scene__cloud--b{background:linear-gradient(180deg,rgba(170,178,194,.94),rgba(108,118,138,.86));box-shadow:18px 4px 0 -2px rgba(140,150,168,.84),-12px 6px 0 -4px rgba(96,106,124,.72),0 12px 24px rgba(0,0,0,.34)}
+@keyframes home-weather-sun-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@keyframes home-weather-sun-rays{to{transform:rotate(360deg)}}
+@keyframes home-weather-moon-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@keyframes home-weather-cloud-drift-a{0%,100%{transform:translateX(0)}50%{transform:translateX(8px)}}
+@keyframes home-weather-cloud-drift-b{0%,100%{transform:translateX(0)}50%{transform:translateX(-10px)}}
+@keyframes home-weather-rain-fall{from{background-position:0 0}to{background-position:0 16px}}
+@keyframes home-weather-snow-fall{from{background-position:0 0,6px 0}to{background-position:0 28px,6px 28px}}
+@keyframes home-weather-bolt-flash{0%,74%,100%{opacity:0;transform:scale(.92)}78%,82%{opacity:1;transform:scale(1)}}
+@keyframes home-weather-fog-drift{0%,100%{transform:translateX(-4px)}50%{transform:translateX(10px)}}
+.home-construction-weather-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-right:108px}
+.home-construction-weather-city{font-size:18px;font-weight:760;color:rgba(255,255,255,.96);letter-spacing:.01em}
+.home-construction-weather-status{font-size:10px;color:rgba(255,255,255,.62);letter-spacing:.11em;text-transform:uppercase}
+.home-construction-weather-main{margin-top:5px;display:flex;align-items:flex-end;gap:10px}
+.home-construction-weather-temp{font-size:38px;font-weight:820;line-height:1;color:#fff;text-shadow:0 8px 24px rgba(0,0,0,.24)}
+.home-construction-weather-desc{padding-bottom:6px;font-size:12.5px;color:rgba(255,255,255,.80)}
+.home-construction-weather-meta{margin-top:8px;font-size:10.8px;color:rgba(255,255,255,.60);line-height:1.45;max-width:calc(100% - 108px)}
+.home-construction-pills{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}
+.home-construction-pill{height:28px;padding:0 11px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.05);display:inline-flex;align-items:center;font-size:10.5px;font-weight:700;color:rgba(255,255,255,.74)}
+.home-construction-grid{width:min(540px,100%);display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.home-construction-action{position:relative;min-height:70px;padding:11px 14px 10px;border-radius:14px;border:1px solid color-mix(in srgb,var(--home-accent) 18%,rgba(255,255,255,.11));background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.018));color:#fff;text-align:left;font-family:inherit;cursor:pointer;overflow:hidden;transition:transform .18s,border-color .18s,background .18s,box-shadow .18s}
+.home-construction-action::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(180deg,color-mix(in srgb,var(--home-accent) 66%,#fff),transparent 82%);opacity:.8;pointer-events:none}
+.home-construction-action::after{content:'';position:absolute;inset:0;background:linear-gradient(120deg,color-mix(in srgb,var(--home-accent) 18%,transparent),transparent 60%);opacity:.55;pointer-events:none}
+.home-construction-action:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--home-accent) 36%,rgba(255,255,255,.20));background:linear-gradient(145deg,rgba(255,255,255,.085),rgba(255,255,255,.03));box-shadow:0 14px 30px rgba(0,0,0,.26)}
+.home-construction-action strong,.home-construction-action span{position:relative;z-index:1;display:block}
+.home-construction-action strong{font-size:12.8px;font-weight:760;letter-spacing:.01em}
+.home-construction-action span{margin-top:5px;font-size:10.8px;color:rgba(255,255,255,.62);line-height:1.34}
+.home-construction-weather-tools{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
+.home-construction-weather-tools .home-chip{height:30px;padding:0 12px;font-size:10.8px}
+#home-weather-locate-chip{border-color:color-mix(in srgb,var(--home-accent) 40%,rgba(255,255,255,.14));background:color-mix(in srgb,var(--home-accent) 16%,rgba(255,255,255,.06));color:#fff}
+#home-weather-locate-chip:hover{border-color:color-mix(in srgb,var(--home-accent) 58%,rgba(255,255,255,.22));background:color-mix(in srgb,var(--home-accent) 22%,rgba(255,255,255,.09))}
+@media (max-width:760px){
+  .home-construction-weather-card{padding:14px 14px 12px}
+  .home-construction-weather-scene-wrap{width:92px;height:68px}
+  .home-construction-weather-head{padding-right:94px}
+  .home-construction-weather-meta{max-width:calc(100% - 94px)}
+}
+@media (max-width:620px){
+  .home-construction-weather-scene-wrap{top:12px;right:12px;width:82px;height:60px}
+  .home-construction-weather-head{padding-right:84px}
+  .home-construction-weather-main{margin-top:4px}
+  .home-construction-weather-temp{font-size:33px}
+  .home-construction-weather-desc{font-size:12px;padding-bottom:4px}
+  .home-construction-weather-meta{margin-top:6px;max-width:100%}
+  .home-construction-grid{grid-template-columns:1fr}
+}
 .home-sub{grid-column:1;margin-top:14px;font-size:13px;line-height:1.62;color:rgba(255,255,255,.62);max-width:348px}
 .home-weather-meta{grid-column:1;display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
 .home-weather-pill{height:28px;padding:0 10px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.050);display:inline-flex;align-items:center;color:rgba(255,255,255,.70);font-size:11px;font-weight:680}
 .home-quick-row{grid-column:1;position:relative;z-index:3;display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
 .home-chip{height:32px;padding:0 13px;border-radius:999px;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.060);color:rgba(255,255,255,.76);font-family:inherit;font-size:11.5px;font-weight:680;cursor:pointer;transition:background .18s,border-color .18s,color .18s,transform .18s,box-shadow .18s}
 .home-chip:hover{background:color-mix(in srgb,var(--home-accent) 10%,transparent);border-color:color-mix(in srgb,var(--home-accent) 38%,rgba(255,255,255,.10));color:#fff;box-shadow:0 10px 26px color-mix(in srgb,var(--home-accent) 8%,transparent);transform:translateY(-1px)}
-.home-console-chip{height:36px;border-color:color-mix(in srgb,var(--home-accent) 34%,rgba(255,255,255,.12));background:color-mix(in srgb,var(--home-accent) 12%,rgba(255,255,255,.055));color:#fff}
+.home-console-chip{height:34px;align-self:stretch;justify-content:center;border-color:color-mix(in srgb,var(--home-accent) 30%,rgba(255,255,255,.12));background:color-mix(in srgb,var(--home-accent) 10%,rgba(255,255,255,.05));color:#fff}
 .home-visual{grid-column:2;grid-row:2 / span 2;position:relative;align-self:center;justify-self:end;width:100%;max-width:300px;height:74px;margin-top:0;pointer-events:none;filter:drop-shadow(0 18px 34px rgba(0,0,0,.28))}
 .home-visual.generated .home-sleeve,.home-visual.generated .home-disc{display:none}
 .home-radio-img{display:none}
@@ -328,7 +407,7 @@ body.empty-home-active .home-visual{animation:home-visual-drift 8.8s ease-in-out
 @media (max-width:1120px){#empty-home{width:calc(100vw - 48px)}.empty-home-shell{grid-template-columns:minmax(300px,.88fr) minmax(440px,1.12fr);gap:12px}.home-hero{padding:24px}.home-hero-inner{grid-template-columns:minmax(0,1.16fr) minmax(128px,.52fr);column-gap:14px}.home-title{font-size:clamp(30px,4vw,48px);max-width:340px}.home-sub{font-size:12.5px;line-height:1.5;max-width:314px}.home-visual{height:198px;max-width:236px}.home-mosaic{height:142px;min-height:126px;margin-top:14px}.home-grid{gap:10px}.home-card{min-height:126px;padding:14px;border-radius:20px}.home-card-label{margin-bottom:6px}.home-card-title{font-size:16.5px;max-width:66%}.home-card-sub{margin-top:6px;font-size:10.8px;line-height:1.34;max-width:64%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.home-card-art{right:11px;bottom:11px;width:80px;height:80px;border-radius:18px}.home-card-art:not(.has-cover)::before{inset:14px;box-shadow:inset 0 0 0 11px rgba(5,5,8,.44),0 10px 24px rgba(0,0,0,.24)}.home-card::after{right:88px;bottom:14px;width:30px;height:56px}.home-rail{gap:8px}.home-tile{min-height:128px}.home-tile-cover{height:66px}}
 @media (max-height:760px){#empty-home{top:132px;bottom:44px}.empty-home-shell{min-height:0}.home-hero{min-height:0;padding:22px}.home-hero-inner{grid-template-columns:minmax(0,1.22fr) minmax(136px,.54fr);column-gap:14px}.home-title{font-size:clamp(31px,3.75vw,48px);max-width:360px}.home-sub{font-size:12.5px;line-height:1.55;max-width:330px}.home-quick-row{margin-top:16px}.home-visual{height:206px;max-width:246px}.home-mosaic{height:132px;min-height:120px;margin-top:14px}.home-card{min-height:134px;padding:14px}.home-card-title{font-size:17px}.home-card-art{width:92px;height:92px;border-radius:21px}.home-tile{min-height:132px}.home-tile-cover{height:72px}}
 @media (max-height:700px){#empty-home{top:126px;bottom:34px}.home-hero{padding:20px}.home-title{font-size:clamp(28px,3.55vw,42px)}.home-sub{font-size:12px;line-height:1.42}.home-weather-meta{margin-top:12px}.home-quick-row{margin-top:12px}.home-visual{height:174px;max-width:216px}.home-mosaic{height:112px;min-height:104px}.home-card{min-height:112px;padding:12px}.home-card-title{font-size:15.5px}.home-card-sub{font-size:10.5px;line-height:1.28;-webkit-line-clamp:2}.home-card-art{width:70px;height:70px;border-radius:16px}.home-card::after{right:78px;height:48px}.home-tile{min-height:112px;padding:9px}.home-tile-cover{height:54px;margin-bottom:8px}.home-section-head{min-height:30px}}
-@media (max-width:840px){.empty-home-shell{grid-template-columns:minmax(250px,.86fr) minmax(360px,1.14fr)}.home-hero-inner{grid-template-columns:minmax(0,1fr)}.home-visual{display:none}.home-mosaic{height:124px;min-height:108px}.home-card{min-height:108px}.home-card-title{font-size:15px;max-width:68%}.home-card-sub{font-size:10.3px;max-width:62%}.home-card-art{width:66px;height:66px;border-radius:15px}.home-card::after{right:72px;width:24px;height:44px}.home-tile-title{font-size:11.5px}}
+@media (max-width:840px){.empty-home-shell{grid-template-columns:minmax(250px,.86fr) minmax(360px,1.14fr)}.home-hero-inner{grid-template-columns:minmax(0,1fr)}.home-visual{display:none}.home-mosaic{height:124px;min-height:108px}.home-card{min-height:108px}.home-card-title{font-size:15px;max-width:68%}.home-card-sub{font-size:10.3px;max-width:62%}.home-card-art{width:66px;height:66px;border-radius:15px}.home-card::after{right:72px;width:24px;height:44px}.home-tile-title{font-size:11.5px}.home-construction-grid{grid-template-columns:1fr}}
 @media (max-width:760px){#empty-home{top:150px;bottom:56px;width:calc(100vw - 40px)}.empty-home-shell{grid-template-columns:1fr;grid-template-rows:auto auto 1fr;overflow:auto;padding-bottom:4px}.home-hero{grid-row:auto;min-height:344px}.home-mosaic{height:172px;min-height:150px}.home-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.home-tile-row{grid-template-columns:repeat(3,minmax(0,1fr))}}
 body.empty-home-active.controls-visible #empty-home{bottom:128px}
 @media (max-height:760px){body.empty-home-active.controls-visible #empty-home{bottom:112px}}
@@ -1959,7 +2038,57 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
   <div class="empty-home-shell">
     <div class="home-hero">
       <div class="home-hero-inner home-construction-inner">
-        <div class="home-title home-construction-title">🚧此处施工，敬请期待🚧</div>
+        <div class="home-construction-weather-card">
+          <div class="home-construction-weather-scene-wrap" aria-hidden="true">
+            <div class="home-weather-scene" id="home-weather-scene" data-scene="loading">
+              <div class="home-weather-scene__sun"></div>
+              <div class="home-weather-scene__moon"></div>
+              <div class="home-weather-scene__cloud home-weather-scene__cloud--a"></div>
+              <div class="home-weather-scene__cloud home-weather-scene__cloud--b"></div>
+              <div class="home-weather-scene__rain"></div>
+              <div class="home-weather-scene__snow"></div>
+              <div class="home-weather-scene__bolt"></div>
+              <div class="home-weather-scene__fog home-weather-scene__fog--a"></div>
+              <div class="home-weather-scene__fog home-weather-scene__fog--b"></div>
+            </div>
+          </div>
+          <div class="home-construction-weather-head">
+            <div class="home-construction-weather-city" id="home-construction-weather-city">定位中...</div>
+            <div class="home-construction-weather-status" id="home-construction-weather-status">WEATHER</div>
+          </div>
+          <div class="home-construction-weather-main">
+            <div class="home-construction-weather-temp" id="home-construction-weather-temp">--°</div>
+            <div class="home-construction-weather-desc" id="home-construction-weather-desc">等待天气数据</div>
+          </div>
+          <div class="home-construction-weather-meta" id="home-construction-weather-meta">将根据定位或你选择的城市生成天气电台。</div>
+          <div class="home-construction-weather-tools">
+            <button class="home-chip" id="home-weather-locate-chip" type="button" onclick="runHomeConstructionAction('locate')">获取定位</button>
+            <button class="home-chip" id="home-weather-city-chip" type="button" onclick="runHomeConstructionAction('city')">切换城市</button>
+          </div>
+        </div>
+        <div class="home-construction-pills">
+          <div class="home-construction-pill" id="home-construction-login-pill">账号：未登录</div>
+          <div class="home-construction-pill" id="home-construction-queue-pill">队列：0 首</div>
+          <div class="home-construction-pill" id="home-construction-weather-pill">天气：待获取</div>
+        </div>
+        <div class="home-construction-grid">
+          <button class="home-construction-action" type="button" onclick="runHomeConstructionAction('daily')">
+            <strong>快速开播</strong>
+            <span>优先拉取每日/推荐歌曲</span>
+          </button>
+          <button class="home-construction-action" type="button" onclick="runHomeConstructionAction('recent')">
+            <strong>继续上次</strong>
+            <span>从最近播放记录继续</span>
+          </button>
+          <button class="home-construction-action" type="button" onclick="runHomeConstructionAction('library')">
+            <strong>打开歌单库</strong>
+            <span>进入左侧歌单与收藏</span>
+          </button>
+          <button class="home-construction-action" type="button" onclick="runHomeConstructionAction('fx')">
+            <strong>视觉控制台</strong>
+            <span>开启 DIY 后可调视觉参数</span>
+          </button>
+        </div>
         <button class="home-chip home-console-chip" id="home-console-chip" type="button" onclick="toggleHomePlayerConsole()">展开播放器控制台</button>
       </div>
     </div>
@@ -2795,6 +2924,7 @@ var homeVisualPrevPreset = 0;
 var HOME_LISTEN_STATS_KEY = 'mineradio-listen-stats-v1';
 var HOME_WEATHER_CITY_KEY = 'mineradio-weather-city';
 var homeWeatherRadioState = { loading: false, loaded: false, city: localStorage.getItem(HOME_WEATHER_CITY_KEY) || '上海', weather: null, radio: null, error: '', updatedAt: 0 };
+var homeWeatherAutoLocateTried = false;
 var homeWeatherToken = 0;
 var homeWeatherLoadTimer = null;
 var homeWeatherLoadPromise = null;
@@ -15585,6 +15715,7 @@ function renderHomeTiles() {
   renderHomeMosaic(tiles);
 }
 function renderHomeDiscover() {
+  updateHomeConstructionPanel();
   var sub = document.getElementById('home-subtitle');
   var loggedOutHome = !homeDiscoverState.loggedIn && !hasAnyPlatformLogin();
   var weather = homeWeatherRadioState.weather;
@@ -15929,6 +16060,111 @@ function updateHomeConsoleChipLabel() {
   if (!btn) return;
   btn.textContent = isHomePlayerConsoleExpanded() ? '收起' : '展开播放器控制台';
 }
+function homeWeatherSceneKey(weather, loading, error) {
+  if (loading) return 'loading';
+  if (error || !weather) return 'idle';
+  var code = Number(weather.weatherCode);
+  var night = weather.isDay === 0;
+  if (code === 0) return night ? 'night-clear' : 'clear';
+  if (code === 1 || code === 2) return night ? 'night-partly' : 'partly';
+  if (code === 3) return 'cloudy';
+  if (code === 45 || code === 48) return 'fog';
+  if (code === 51 || code === 53 || code === 55 || code === 56 || code === 57) return 'drizzle';
+  if (code === 61 || code === 63 || code === 65 || code === 80 || code === 81 || code === 82) return 'rain';
+  if (code === 71 || code === 73 || code === 75 || code === 77 || code === 85 || code === 86) return 'snow';
+  if (code === 95 || code === 96 || code === 99) return 'storm';
+  if (/晴|sun/i.test(weather.label || '')) return night ? 'night-clear' : 'clear';
+  if (/少云|partly/i.test(weather.label || '')) return night ? 'night-partly' : 'partly';
+  if (/阴|cloud/i.test(weather.label || '')) return 'cloudy';
+  if (/雾|fog/i.test(weather.label || '')) return 'fog';
+  if (/雪|snow/i.test(weather.label || '')) return 'snow';
+  if (/雷|storm|thunder/i.test(weather.label || '')) return 'storm';
+  if (/雨|shower|drizzle/i.test(weather.label || '')) return 'rain';
+  return 'cloudy';
+}
+function updateHomeWeatherScene(weather, loading, error) {
+  var scene = document.getElementById('home-weather-scene');
+  if (!scene) return;
+  scene.setAttribute('data-scene', homeWeatherSceneKey(weather, loading, error));
+}
+function updateHomeConstructionPanel() {
+  var loginPill = document.getElementById('home-construction-login-pill');
+  if (loginPill) {
+    loginPill.textContent = hasAnyPlatformLogin() ? '账号：已登录' : '账号：未登录';
+  }
+  var queuePill = document.getElementById('home-construction-queue-pill');
+  if (queuePill) {
+    var queueCount = Array.isArray(playQueue) ? playQueue.length : 0;
+    queuePill.textContent = '队列：' + queueCount + ' 首';
+  }
+  var weatherPill = document.getElementById('home-construction-weather-pill');
+  if (weatherPill) {
+    var weather = homeWeatherRadioState.weather;
+    var weatherCity = weather && weather.location && weather.location.name || homeWeatherRadioState.city || '上海';
+    if (homeWeatherRadioState.loading) weatherPill.textContent = '天气：定位/拉取中';
+    else if (weather && weather.label) weatherPill.textContent = '天气：' + weatherCity + ' · ' + weather.label + ' ' + Math.round(weather.temperature || 0) + '°';
+    else if (homeWeatherRadioState.error) weatherPill.textContent = '天气：' + weatherCity + ' · 获取失败';
+    else weatherPill.textContent = '天气：' + weatherCity + ' · 待获取';
+  }
+  var weather = homeWeatherRadioState.weather;
+  var city = weather && weather.location && weather.location.name || homeWeatherRadioState.city || '上海';
+  var cityEl = document.getElementById('home-construction-weather-city');
+  if (cityEl) cityEl.textContent = city;
+  var statusEl = document.getElementById('home-construction-weather-status');
+  if (statusEl) statusEl.textContent = homeWeatherRadioState.loading ? 'SYNCING' : (homeWeatherRadioState.error ? 'OFFLINE' : 'LIVE');
+  var tempEl = document.getElementById('home-construction-weather-temp');
+  if (tempEl) tempEl.textContent = weather && isFinite(weather.temperature) ? (Math.round(weather.temperature) + '°') : '--°';
+  updateHomeWeatherScene(weather, homeWeatherRadioState.loading, homeWeatherRadioState.error);
+  var descEl = document.getElementById('home-construction-weather-desc');
+  if (descEl) {
+    if (weather && weather.label) descEl.textContent = weather.label;
+    else if (homeWeatherRadioState.loading) descEl.textContent = '正在定位和拉取天气';
+    else if (homeWeatherRadioState.error) descEl.textContent = '天气获取失败，可切换城市';
+    else descEl.textContent = '等待天气数据';
+  }
+  var metaEl = document.getElementById('home-construction-weather-meta');
+  if (metaEl) {
+    if (weather) {
+      var apparent = isFinite(weather.apparentTemperature) ? Math.round(weather.apparentTemperature) + '°' : '--';
+      var humidity = isFinite(weather.humidity) ? (Math.round(weather.humidity) + '%') : '--';
+      metaEl.textContent = '体感 ' + apparent + ' · 湿度 ' + humidity + ' · 已同步天气电台';
+    } else if (homeWeatherRadioState.loading) {
+      metaEl.textContent = '正在尝试自动定位你当前城市并生成天气推荐。';
+    } else if (homeWeatherRadioState.error) {
+      metaEl.textContent = '网络定位不可用，建议手动切换城市后重试。';
+    } else {
+      metaEl.textContent = '将根据定位或你选择的城市生成天气电台。';
+    }
+  }
+  var cityChip = document.getElementById('home-weather-city-chip');
+  if (cityChip) cityChip.textContent = '切换城市（' + (homeWeatherRadioState.city || '上海') + '）';
+}
+function runHomeConstructionAction(action) {
+  if (action === 'daily') {
+    playHomeSong(0);
+    return;
+  }
+  if (action === 'recent') {
+    playHomeRecent();
+    return;
+  }
+  if (action === 'library') {
+    openHomeLibrary();
+    return;
+  }
+  if (action === 'fx') {
+    toggleFxPanel(true);
+    return;
+  }
+  if (action === 'locate') {
+    locateWeatherRadio();
+    return;
+  }
+  if (action === 'city') {
+    changeWeatherCity();
+    return;
+  }
+}
 function closeHomePlayerConsole() {
   if (controlsHideTimer) {
     clearTimeout(controlsHideTimer);
@@ -16032,6 +16268,11 @@ function updateEmptyHomeVisibility(opts) {
   else deactivateHomeWallpaperPreview(false);
   if (show) {
     setPeek(document.getElementById('search-area'), true, 'search');
+    updateHomeConstructionPanel();
+    if (!homeWeatherAutoLocateTried && !homeWeatherRadioState.loaded && !homeWeatherRadioState.loading) {
+      homeWeatherAutoLocateTried = true;
+      locateWeatherRadio();
+    }
     renderHomeDiscover();
     scheduleHomeWeatherLoad(opts.forceLoad ? 1400 : 2400);
     if (!hasAnyPlatformLogin()) {
