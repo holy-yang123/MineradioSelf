@@ -831,6 +831,96 @@ function writeBeatMapCache(body) {
   fs.renameSync(tmp, file);
   return { ok: true, key: payload.key, savedAt: payload.savedAt, dir: path.dirname(file) };
 }
+function getDirStats(dir) {
+  const resolved = path.resolve(String(dir || ''));
+  if (!resolved || !fs.existsSync(resolved)) {
+    return { dir: resolved, bytes: 0, files: 0 };
+  }
+  let bytes = 0;
+  let files = 0;
+  const walk = (current) => {
+    let entries;
+    try {
+      entries = fs.readdirSync(current, { withFileTypes: true });
+    } catch (err) {
+      return;
+    }
+    entries.forEach((entry) => {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.isFile()) {
+        try {
+          bytes += fs.statSync(full).size;
+          files += 1;
+        } catch (err) {}
+      }
+    });
+  };
+  walk(resolved);
+  return { dir: resolved, bytes, files };
+}
+function clearDirFiles(dir) {
+  const resolved = path.resolve(String(dir || ''));
+  if (!resolved || !fs.existsSync(resolved)) {
+    return { ok: true, dir: resolved, deleted: 0 };
+  }
+  let deleted = 0;
+  const walk = (current) => {
+    const entries = fs.readdirSync(current, { withFileTypes: true });
+    entries.forEach((entry) => {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.isFile()) {
+        fs.unlinkSync(full);
+        deleted += 1;
+      }
+    });
+  };
+  walk(resolved);
+  return { ok: true, dir: resolved, deleted };
+}
+function buildCacheStatusPayload() {
+  const beatInfo = beatCacheRootInfo();
+  const beatEnabled = beatInfo.allowed && beatInfo.available;
+  const beatStats = beatEnabled && fs.existsSync(beatInfo.dir)
+    ? getDirStats(beatInfo.dir)
+    : { dir: beatInfo.dir, bytes: 0, files: 0 };
+  const updateStats = getDirStats(UPDATE_DOWNLOAD_DIR);
+  return {
+    ok: true,
+    beatmaps: {
+      enabled: beatEnabled,
+      dir: beatInfo.dir,
+      drive: beatInfo.drive,
+      bytes: beatStats.bytes,
+      files: beatStats.files,
+      reason: !beatInfo.allowed ? 'C_DRIVE_DISABLED' : (!beatInfo.available ? 'TARGET_DRIVE_UNAVAILABLE' : ''),
+    },
+    updates: {
+      dir: updateStats.dir,
+      bytes: updateStats.bytes,
+      files: updateStats.files,
+    },
+  };
+}
+function clearBeatMapDiskCache() {
+  const info = beatCacheRootInfo();
+  if (!info.allowed) {
+    return { ok: false, error: 'C_DRIVE_DISABLED', dir: info.dir };
+  }
+  if (!info.available) {
+    return { ok: false, error: 'TARGET_DRIVE_UNAVAILABLE', dir: info.dir };
+  }
+  if (!fs.existsSync(info.dir)) {
+    return { ok: true, dir: info.dir, deleted: 0 };
+  }
+  const result = clearDirFiles(info.dir);
+  return { ok: true, dir: result.dir, deleted: result.deleted };
+}
+function clearUpdateDownloadCache() {
+  const result = clearDirFiles(UPDATE_DOWNLOAD_DIR);
+  return { ok: true, dir: result.dir, deleted: result.deleted };
+}
 function localUpdateFallback(reason, opts) {
   opts = opts || {};
   const configured = !!(opts.configured != null ? opts.configured : false);
@@ -4146,6 +4236,41 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
+    return;
+  }
+
+  if (pn === '/api/cache/status') {
+    try {
+      sendJSON(res, buildCacheStatusPayload());
+    } catch (err) {
+      sendJSON(res, { ok: false, error: err.message || 'CACHE_STATUS_FAILED' }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/cache/beatmaps') {
+    if (req.method === 'DELETE') {
+      try {
+        sendJSON(res, clearBeatMapDiskCache());
+      } catch (err) {
+        sendJSON(res, { ok: false, error: err.message || 'BEAT_CACHE_CLEAR_FAILED' }, 500);
+      }
+      return;
+    }
+    sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
+    return;
+  }
+
+  if (pn === '/api/cache/updates') {
+    if (req.method === 'DELETE') {
+      try {
+        sendJSON(res, clearUpdateDownloadCache());
+      } catch (err) {
+        sendJSON(res, { ok: false, error: err.message || 'UPDATE_CACHE_CLEAR_FAILED' }, 500);
+      }
+      return;
+    }
     sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
     return;
   }

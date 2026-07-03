@@ -1374,6 +1374,19 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
 .settings-link-row:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.12)}
 .settings-link-label{font-size:12.5px;font-weight:760;color:rgba(255,255,255,.88)}
 .settings-link-arrow{font-size:14px;color:rgba(255,255,255,.34)}
+.settings-restore-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-height:42px;margin:6px 0;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.065);background:rgba(255,255,255,.028);cursor:pointer;transition:background .18s,border-color .18s}
+.settings-restore-row:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.12)}
+.settings-restore-row .settings-link-arrow{margin-top:2px}
+.settings-cache-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 0 8px;padding:8px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);font-size:11px;color:rgba(255,255,255,.52)}
+.settings-cache-row{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:40px;margin:5px 0;padding:9px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.024)}
+.settings-cache-main{min-width:0;flex:1}
+.settings-cache-label{font-size:12px;font-weight:720;color:rgba(255,255,255,.86)}
+.settings-cache-size{margin-top:3px;font-size:10.5px;color:rgba(255,255,255,.40);line-height:1.4}
+.settings-cache-row.disabled{opacity:.55}
+.settings-mini-btn{flex:0 0 auto;height:28px;padding:0 11px;border-radius:9px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.05);color:rgba(255,255,255,.78);font-size:11px;font-weight:700;cursor:pointer;transition:background .18s,border-color .18s,color .18s}
+.settings-mini-btn:hover:not(:disabled){background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.16);color:#fff}
+.settings-mini-btn:disabled{opacity:.42;cursor:default}
+.settings-mini-btn.armed{border-color:rgba(255,120,120,.42);background:rgba(255,83,103,.12);color:#ffd0d6}
 @media (max-width:720px){
   .hotkey-row{grid-template-columns:1fr;gap:7px}
   .hotkey-toolbar{align-items:flex-start;flex-direction:column}
@@ -9641,6 +9654,10 @@ function setCoverDepthCache(raw, canvas, aiEnhanced) {
     var drop = coverDepthCacheKeys.shift();
     delete coverDepthCache[drop];
   }
+}
+function clearCoverDepthCache() {
+  coverDepthCache = Object.create(null);
+  coverDepthCacheKeys = [];
 }
 
 function buildEdgeAndDepth(srcCanvas) {
@@ -22633,6 +22650,244 @@ var appSettingsLoaded = false;
 var APP_SETTINGS_STORE_KEY = 'mineradio-app-settings-v1';
 var AppSettingsSchema = window.MineradioAppSettings || {};
 var LOGIN_PROVIDER_KEYS = AppSettingsSchema.LOGIN_PROVIDER_KEYS || ['netease', 'qq', 'kugou'];
+var SETTINGS_CONFIRM_MS = 3000;
+var settingsConfirmState = { action: '', expiresAt: 0 };
+var cacheSettingsState = { server: null, loading: false };
+var FX_LAYOUT_RESTORE_KEYS = [
+  'lyricScale', 'lyricOffsetX', 'lyricOffsetY', 'lyricOffsetZ', 'lyricTiltX', 'lyricTiltY', 'lyricCameraLock',
+  'shelfSize', 'shelfOffsetX', 'shelfOffsetY', 'shelfOffsetZ', 'shelfAngleY', 'shelfAngleYManual', 'shelfOpacity', 'shelfBgOpacity',
+  'desktopLyricsSize', 'desktopLyricsOpacity', 'desktopLyricsY'
+];
+
+function formatCacheBytes(bytes) {
+  bytes = Number(bytes) || 0;
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+}
+function getLocalStorageKeySize(key) {
+  try {
+    var value = localStorage.getItem(key);
+    if (value == null) return 0;
+    return new Blob([value]).size;
+  } catch (e) {
+    return 0;
+  }
+}
+function getLocalCacheUsageReport() {
+  var localBeatBytes = getLocalStorageKeySize(LOCAL_BEATMAP_STORE_KEY) + getLocalStorageKeySize(LOCAL_BEAT_PREF_STORE_KEY);
+  var customCoverBytes = getLocalStorageKeySize(CUSTOM_COVER_STORE_KEY);
+  var customLyricBytes = getLocalStorageKeySize(CUSTOM_LYRIC_STORE_KEY) + getLocalStorageKeySize(CUSTOM_LYRIC_PREF_STORE_KEY);
+  var searchHistoryBytes = getLocalStorageKeySize(SEARCH_HISTORY_STORE_KEY);
+  var coverDepthCount = coverDepthCacheKeys ? coverDepthCacheKeys.length : 0;
+  var localTotal = localBeatBytes + customCoverBytes + customLyricBytes + searchHistoryBytes;
+  return {
+    localBeatBytes: localBeatBytes,
+    customCoverBytes: customCoverBytes,
+    customLyricBytes: customLyricBytes,
+    searchHistoryBytes: searchHistoryBytes,
+    coverDepthCount: coverDepthCount,
+    localTotal: localTotal
+  };
+}
+function fetchCacheStatus() {
+  return apiJson('/api/cache/status?t=' + Date.now()).catch(function(){
+    return { ok: false, beatmaps: { enabled: false, bytes: 0, files: 0 }, updates: { bytes: 0, files: 0 } };
+  });
+}
+function clearServerCache(target) {
+  return apiJson('/api/cache/' + target, { method: 'DELETE' });
+}
+function clearLocalCacheCategory(id) {
+  if (id === 'local-beat') {
+    try {
+      localStorage.removeItem(LOCAL_BEATMAP_STORE_KEY);
+      localStorage.removeItem(LOCAL_BEAT_PREF_STORE_KEY);
+    } catch (e) {}
+    localBeatMapCache = {};
+    localBeatMapPrefs = {};
+    saveLocalBeatPrefs();
+    return;
+  }
+  if (id === 'custom-cover') {
+    customCoverMap = {};
+    saveCustomCoverMap();
+    return;
+  }
+  if (id === 'custom-lyric') {
+    customLyricMap = {};
+    customLyricPrefs = {};
+    saveCustomLyricMap();
+    saveCustomLyricPrefs();
+    return;
+  }
+  if (id === 'search-history') {
+    try { localStorage.removeItem(SEARCH_HISTORY_STORE_KEY); } catch (e) {}
+    if (typeof renderSearchHistory === 'function') renderSearchHistory();
+    return;
+  }
+  if (id === 'cover-depth') {
+    clearCoverDepthCache();
+  }
+}
+function resetSettingsConfirmUi() {
+  settingsConfirmState = { action: '', expiresAt: 0 };
+  document.querySelectorAll('[data-settings-restore]').forEach(function(row){
+    var desc = row.querySelector('.settings-row-desc');
+    var original = row.getAttribute('data-desc-default');
+    if (desc && original) desc.textContent = original;
+  });
+  document.querySelectorAll('[data-cache-clear]').forEach(function(btn){
+    btn.textContent = btn.getAttribute('data-label-default') || '清理';
+    btn.classList.remove('armed');
+    btn.disabled = !!btn.getAttribute('data-disabled-default');
+  });
+}
+function armSettingsConfirm(action) {
+  if (settingsConfirmState.action === action && Date.now() < settingsConfirmState.expiresAt) {
+    settingsConfirmState = { action: '', expiresAt: 0 };
+    return true;
+  }
+  settingsConfirmState = { action: action, expiresAt: Date.now() + SETTINGS_CONFIRM_MS };
+  return false;
+}
+function restorePackagedDefaultVisual() {
+  if (!applyFxArchiveSnapshot(clonePackagedDefaultFxSnapshot())) {
+    showToast('恢复失败');
+    return;
+  }
+  showToast('已恢复为默认测试视觉');
+}
+function restoreFxLayoutDefaults() {
+  var defaults = clonePackagedDefaultFxSnapshot();
+  FX_LAYOUT_RESTORE_KEYS.forEach(function(key){
+    if (Object.prototype.hasOwnProperty.call(defaults, key)) fx[key] = defaults[key];
+  });
+  try { localStorage.removeItem(FREE_CAMERA_STORE_KEY); } catch (e) {}
+  freeCamera = readFreeCameraState();
+  if (shelfManager && shelfManager.rebuild) shelfManager.rebuild(true);
+  if (shelfManager && shelfManager.refreshTheme) shelfManager.refreshTheme();
+  updateFxInputs();
+  applyDesktopLyricsState(true);
+  saveLyricLayout();
+  showToast('已恢复布局参数');
+}
+function restoreFxPerformanceDefaults() {
+  var defaults = Object.assign({}, fxDefaults, clonePackagedDefaultFxSnapshot());
+  fx.performanceBackground = normalizePerformanceBackgroundMode(defaults.performanceBackground, defaults.liveBackgroundKeep === true);
+  fx.performanceQuality = normalizePerformanceQuality(defaults.performanceQuality);
+  fx.liveBackgroundKeep = fx.performanceBackground === 'keep';
+  fx.coverResolution = normalizeCoverResolution(defaults.coverResolution);
+  applyCoverParticleResolution(fx.coverResolution, { reload: true });
+  updateFxInputs();
+  updateRenderPowerClasses();
+  applyRendererPowerMode();
+  saveLyricLayout();
+  showToast('已恢复性能参数');
+}
+function handleSettingsRestoreAction(action) {
+  if (!armSettingsConfirm('restore:' + action)) {
+    var row = document.querySelector('[data-settings-restore="' + action + '"]');
+    var desc = row && row.querySelector('.settings-row-desc');
+    if (desc) desc.textContent = '再次点击确认';
+    return;
+  }
+  resetSettingsConfirmUi();
+  if (action === 'visual') restorePackagedDefaultVisual();
+  else if (action === 'layout') restoreFxLayoutDefaults();
+  else if (action === 'performance') restoreFxPerformanceDefaults();
+}
+function beatDiskCacheReasonLabel(reason) {
+  if (reason === 'C_DRIVE_DISABLED') return '未启用（不使用 C 盘缓存）';
+  if (reason === 'TARGET_DRIVE_UNAVAILABLE') return '目标盘不可用';
+  return reason || '不可用';
+}
+function renderCacheSettingsPanel() {
+  var list = document.getElementById('settings-cache-list');
+  var totalEl = document.getElementById('settings-cache-total');
+  if (!list) return;
+  var local = getLocalCacheUsageReport();
+  var server = cacheSettingsState.server || {};
+  var beat = server.beatmaps || {};
+  var updates = server.updates || {};
+  var serverTotal = (Number(beat.bytes) || 0) + (Number(updates.bytes) || 0);
+  var grandTotal = local.localTotal + serverTotal;
+  if (totalEl) {
+    totalEl.textContent = cacheSettingsState.loading
+      ? '正在统计缓存占用…'
+      : ('合计约 ' + formatCacheBytes(grandTotal) + '（本地 ' + formatCacheBytes(local.localTotal) + ' / 磁盘 ' + formatCacheBytes(serverTotal) + '）');
+  }
+  var rows = [
+    { id: 'local-beat', label: '节奏分析（本地）', size: formatCacheBytes(local.localBeatBytes), canClear: true },
+    {
+      id: 'beat-disk',
+      label: '节奏分析（磁盘）',
+      size: beat.enabled ? formatCacheBytes(beat.bytes) + ' · ' + (beat.files || 0) + ' 个文件' : beatDiskCacheReasonLabel(beat.reason),
+      canClear: !!beat.enabled && (beat.files || 0) > 0,
+      server: 'beatmaps'
+    },
+    { id: 'custom-cover', label: '自定义封面', size: formatCacheBytes(local.customCoverBytes), canClear: local.customCoverBytes > 0 },
+    { id: 'custom-lyric', label: '自定义歌词', size: formatCacheBytes(local.customLyricBytes), canClear: local.customLyricBytes > 0 },
+    { id: 'search-history', label: '搜索历史', size: formatCacheBytes(local.searchHistoryBytes), canClear: local.searchHistoryBytes > 0 },
+    { id: 'cover-depth', label: '封面景深（内存）', size: local.coverDepthCount ? (local.coverDepthCount + ' 条 · 仅内存') : '空', canClear: local.coverDepthCount > 0 },
+    {
+      id: 'updates',
+      label: '更新下载包',
+      size: formatCacheBytes(updates.bytes) + ' · ' + (updates.files || 0) + ' 个文件',
+      canClear: (updates.files || 0) > 0,
+      server: 'updates'
+    }
+  ];
+  list.innerHTML = rows.map(function(item){
+    var disabled = !item.canClear;
+    return '<div class="settings-cache-row' + (disabled ? ' disabled' : '') + '" data-cache-id="' + item.id + '">' +
+      '<div class="settings-cache-main">' +
+        '<div class="settings-cache-label">' + escHtml(item.label) + '</div>' +
+        '<div class="settings-cache-size">' + escHtml(item.size) + '</div>' +
+      '</div>' +
+      '<button type="button" class="settings-mini-btn" data-cache-clear="' + item.id + '"' +
+        (item.server ? ' data-cache-server="' + item.server + '"' : '') +
+        ' data-label-default="清理" data-disabled-default="' + (disabled ? '1' : '0') + '"' +
+        (disabled ? ' disabled' : '') + '>清理</button>' +
+    '</div>';
+  }).join('');
+}
+function refreshCacheSettingsPanel() {
+  cacheSettingsState.loading = true;
+  renderCacheSettingsPanel();
+  return fetchCacheStatus().then(function(res){
+    cacheSettingsState.server = res || {};
+    cacheSettingsState.loading = false;
+    renderCacheSettingsPanel();
+  }).catch(function(){
+    cacheSettingsState.loading = false;
+    renderCacheSettingsPanel();
+  });
+}
+function handleSettingsCacheClear(id, serverTarget) {
+  if (!armSettingsConfirm('cache:' + id)) {
+    var btn = document.querySelector('[data-cache-clear="' + id + '"]');
+    if (btn) {
+      btn.textContent = '确认清理';
+      btn.classList.add('armed');
+    }
+    return;
+  }
+  resetSettingsConfirmUi();
+  var work = serverTarget
+    ? clearServerCache(serverTarget).then(function(res){
+        if (!res || res.ok === false) throw new Error((res && res.error) || 'CACHE_CLEAR_FAILED');
+      })
+    : Promise.resolve().then(function(){ clearLocalCacheCategory(id); });
+  work.then(function(){
+    showToast('已清理');
+    return refreshCacheSettingsPanel();
+  }).catch(function(err){
+    showToast('清理失败' + (err && err.message ? (': ' + err.message) : ''));
+    refreshCacheSettingsPanel();
+  });
+}
 
 function normalizeLoginProvidersState(value) {
   if (AppSettingsSchema.normalizeLoginProviders) return AppSettingsSchema.normalizeLoginProviders(value);
@@ -22764,6 +23019,38 @@ function ensureAppSettingsModal() {
         '</div>' +
       '</div>' +
       '<div class="settings-group">' +
+        '<div class="settings-group-title">一键恢复</div>' +
+        '<div class="settings-restore-row" data-settings-restore="visual" data-desc-default="恢复到内置「默认测试」视觉快照，不影响登录与用户存档" role="button" tabindex="0">' +
+          '<div class="settings-row-main">' +
+            '<div class="settings-row-label">恢复默认视觉</div>' +
+            '<div class="settings-row-desc">恢复到内置「默认测试」视觉快照，不影响登录与用户存档</div>' +
+          '</div>' +
+          '<span class="settings-link-arrow" aria-hidden="true">›</span>' +
+        '</div>' +
+        '<div class="settings-restore-row" data-settings-restore="layout" data-desc-default="仅重置歌词位置、歌单架布局与自由镜头，保留当前视觉调参" role="button" tabindex="0">' +
+          '<div class="settings-row-main">' +
+            '<div class="settings-row-label">仅恢复布局</div>' +
+            '<div class="settings-row-desc">仅重置歌词位置、歌单架布局与自由镜头，保留当前视觉调参</div>' +
+          '</div>' +
+          '<span class="settings-link-arrow" aria-hidden="true">›</span>' +
+        '</div>' +
+        '<div class="settings-restore-row" data-settings-restore="performance" data-desc-default="仅重置性能档位、后台策略与封面粒子分辨率" role="button" tabindex="0">' +
+          '<div class="settings-row-main">' +
+            '<div class="settings-row-label">仅恢复性能</div>' +
+            '<div class="settings-row-desc">仅重置性能档位、后台策略与封面粒子分辨率</div>' +
+          '</div>' +
+          '<span class="settings-link-arrow" aria-hidden="true">›</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="settings-group" id="settings-cache-group">' +
+        '<div class="settings-group-title">缓存与磁盘管理</div>' +
+        '<div class="settings-cache-summary">' +
+          '<span id="settings-cache-total">统计中…</span>' +
+          '<button type="button" class="settings-mini-btn" id="settings-cache-refresh">刷新</button>' +
+        '</div>' +
+        '<div id="settings-cache-list"></div>' +
+      '</div>' +
+      '<div class="settings-group">' +
         '<div class="settings-group-title">快捷入口</div>' +
         '<div class="settings-link-row" id="settings-open-hotkeys" role="button" tabindex="0">' +
           '<div class="settings-link-label">热键设置</div>' +
@@ -22773,11 +23060,29 @@ function ensureAppSettingsModal() {
     '</div>';
   document.body.appendChild(modal);
   modal.addEventListener('click', function(e){
-    if (e.target === modal || e.target.closest('[data-settings-close]')) closeAppSettings();
+    if (e.target === modal || e.target.closest('[data-settings-close]')) {
+      resetSettingsConfirmUi();
+      closeAppSettings();
+      return;
+    }
     var trayRow = e.target.closest('#settings-close-to-tray-row');
     if (trayRow) toggleCloseToTraySetting();
     var loginRow = e.target.closest('[data-login-provider]');
     if (loginRow && !loginRow.classList.contains('locked')) toggleLoginProviderSetting(loginRow.getAttribute('data-login-provider'));
+    var restoreRow = e.target.closest('[data-settings-restore]');
+    if (restoreRow) {
+      handleSettingsRestoreAction(restoreRow.getAttribute('data-settings-restore'));
+      return;
+    }
+    if (e.target.closest('#settings-cache-refresh')) {
+      refreshCacheSettingsPanel();
+      return;
+    }
+    var cacheBtn = e.target.closest('[data-cache-clear]');
+    if (cacheBtn && !cacheBtn.disabled) {
+      handleSettingsCacheClear(cacheBtn.getAttribute('data-cache-clear'), cacheBtn.getAttribute('data-cache-server') || '');
+      return;
+    }
     var hotkeyLink = e.target.closest('#settings-open-hotkeys');
     if (hotkeyLink) {
       closeAppSettings();
@@ -22811,6 +23116,14 @@ function ensureAppSettingsModal() {
       if (e.code === 'Enter' || e.code === 'Space') {
         e.preventDefault();
         toggleLoginProviderSetting(key);
+      }
+    });
+  });
+  modal.querySelectorAll('[data-settings-restore]').forEach(function(row){
+    row.addEventListener('keydown', function(e){
+      if (e.code === 'Enter' || e.code === 'Space') {
+        e.preventDefault();
+        handleSettingsRestoreAction(row.getAttribute('data-settings-restore'));
       }
     });
   });
@@ -22904,11 +23217,13 @@ function openAppSettings() {
   var open = function(){
     modal.classList.add('show');
     renderAppSettings();
+    refreshCacheSettingsPanel();
   };
   if (!appSettingsLoaded) loadAppSettings().then(open);
   else open();
 }
 function closeAppSettings() {
+  resetSettingsConfirmUi();
   var modal = document.getElementById('settings-modal');
   if (modal) modal.classList.remove('show');
 }
