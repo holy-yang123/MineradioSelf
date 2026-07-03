@@ -23,7 +23,13 @@ let htmlFullscreenActive = false;
 let windowFullscreenActive = false;
 let mainWindowStateTimer = null;
 let appTray = null;
-let appSettings = { closeToTray: false };
+const {
+  DEFAULT_LOGIN_PROVIDERS,
+  normalizeLoginProviders,
+  mergeLoginProviders,
+} = require('../public/app-settings-schema.js');
+
+let appSettings = { closeToTray: false, loginProviders: { ...DEFAULT_LOGIN_PROVIDERS } };
 let appIsQuitting = false;
 const registeredGlobalHotkeys = new Map();
 
@@ -278,21 +284,26 @@ function getAppSettingsPath() {
 function readAppSettings() {
   try {
     const filePath = getAppSettingsPath();
-    if (!fs.existsSync(filePath)) return { closeToTray: false };
+    if (!fs.existsSync(filePath)) {
+      return { closeToTray: false, loginProviders: { ...DEFAULT_LOGIN_PROVIDERS } };
+    }
     const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     return {
       closeToTray: !!(parsed && parsed.closeToTray),
+      loginProviders: normalizeLoginProviders(parsed && parsed.loginProviders),
     };
   } catch (e) {
     console.warn('App settings read failed:', e.message);
-    return { closeToTray: false };
+    return { closeToTray: false, loginProviders: { ...DEFAULT_LOGIN_PROVIDERS } };
   }
 }
 
 function writeAppSettings(partial) {
   if (partial && typeof partial === 'object') {
-    appSettings = { ...appSettings, ...partial };
     if (typeof partial.closeToTray === 'boolean') appSettings.closeToTray = partial.closeToTray;
+    if (partial.loginProviders && typeof partial.loginProviders === 'object') {
+      appSettings.loginProviders = mergeLoginProviders(appSettings.loginProviders, partial.loginProviders);
+    }
   }
   try {
     fs.writeFileSync(getAppSettingsPath(), JSON.stringify(appSettings, null, 2), 'utf8');

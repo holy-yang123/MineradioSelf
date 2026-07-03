@@ -9,6 +9,7 @@
 <script src="vendor/three.r128.min.js"></script>
 <script src="vendor/music-tempo.min.js"></script>
 <script src="vendor/gsap.min.js"></script>
+<script src="app-settings-schema.js"></script>
 <script>
 try {
   document.documentElement.classList.add(localStorage.getItem('mineradio-diy-player-mode-v1') === '1' ? 'diy-mode-preload' : 'simple-mode-preload');
@@ -1367,6 +1368,8 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
 .settings-row-desc{margin-top:4px;font-size:11px;line-height:1.5;color:rgba(255,255,255,.44)}
 .settings-row .dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.18);transition:all .2s;flex:0 0 auto;margin-top:5px}
 .settings-row.on .dot{background:var(--fc-accent);box-shadow:0 0 10px rgba(0,245,212,.45)}
+.settings-row.locked{opacity:.62;cursor:default}
+.settings-row.locked:hover{background:rgba(255,255,255,.028);border-color:rgba(255,255,255,.065)}
 .settings-link-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:42px;margin:6px 0;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.065);background:rgba(255,255,255,.028);cursor:pointer;transition:background .18s,border-color .18s}
 .settings-link-row:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.12)}
 .settings-link-label{font-size:12.5px;font-weight:760;color:rgba(255,255,255,.88)}
@@ -22625,8 +22628,94 @@ function closeHotkeySettings() {
   if (modal) modal.classList.remove('show', 'capturing');
 }
 
-var appSettingsState = { closeToTray: false };
+var appSettingsState = { closeToTray: false, loginProviders: { netease: true, qq: true, kugou: true } };
 var appSettingsLoaded = false;
+var APP_SETTINGS_STORE_KEY = 'mineradio-app-settings-v1';
+var AppSettingsSchema = window.MineradioAppSettings || {};
+var LOGIN_PROVIDER_KEYS = AppSettingsSchema.LOGIN_PROVIDER_KEYS || ['netease', 'qq', 'kugou'];
+
+function normalizeLoginProvidersState(value) {
+  if (AppSettingsSchema.normalizeLoginProviders) return AppSettingsSchema.normalizeLoginProviders(value);
+  return { netease: true, qq: true, kugou: true };
+}
+function cloneAppSettingsState() {
+  return {
+    closeToTray: !!appSettingsState.closeToTray,
+    loginProviders: normalizeLoginProvidersState(appSettingsState.loginProviders),
+  };
+}
+function isModalOpen(id) {
+  var el = document.getElementById(id);
+  return !!(el && el.classList.contains('show'));
+}
+
+function mergeAppSettingsState(partial) {
+  partial = partial || {};
+  var previous = appSettingsState || {};
+  var mergedProviders = AppSettingsSchema.mergeLoginProviders
+    ? AppSettingsSchema.mergeLoginProviders(previous.loginProviders, partial.loginProviders)
+    : normalizeLoginProvidersState(Object.assign({}, normalizeLoginProvidersState(previous.loginProviders), partial.loginProviders || {}));
+  appSettingsState = {
+    closeToTray: typeof partial.closeToTray === 'boolean' ? partial.closeToTray : !!previous.closeToTray,
+    loginProviders: mergedProviders,
+  };
+  return appSettingsState;
+}
+function readAppSettingsLocal() {
+  try {
+    return JSON.parse(localStorage.getItem(APP_SETTINGS_STORE_KEY) || '{}') || {};
+  } catch (e) {
+    return {};
+  }
+}
+function saveAppSettingsLocal() {
+  try {
+    localStorage.setItem(APP_SETTINGS_STORE_KEY, JSON.stringify(cloneAppSettingsState()));
+  } catch (e) {
+    throw e;
+  }
+}
+function persistAppSettings(patch) {
+  patch = patch || {};
+  var snapshot = cloneAppSettingsState();
+  var api = getDesktopWindowApi && getDesktopWindowApi();
+  var onSuccess = function(){
+    renderAppSettings();
+    applyLoginProviderVisibility({
+      updateLoginUi: true,
+      updateUserUi: isModalOpen('user-modal')
+    });
+  };
+  var onFailure = function(){
+    mergeAppSettingsState(snapshot);
+    renderAppSettings();
+    applyLoginProviderVisibility({
+      updateLoginUi: true,
+      updateUserUi: isModalOpen('user-modal')
+    });
+  };
+  if (!api || typeof api.setAppSettings !== 'function') {
+    try {
+      mergeAppSettingsState(patch);
+      saveAppSettingsLocal();
+      onSuccess();
+      return Promise.resolve({ ok: true, settings: cloneAppSettingsState() });
+    } catch (e) {
+      onFailure();
+      return Promise.reject(e);
+    }
+  }
+  return api.setAppSettings(patch).then(function(res){
+    if (res && res.ok !== false) {
+      if (res.settings) mergeAppSettingsState(res.settings);
+      else mergeAppSettingsState(patch);
+      onSuccess();
+      return res;
+    }
+    onFailure();
+    return Promise.reject(new Error((res && res.error) || 'SETTINGS_WRITE_FAILED'));
+  });
+}
 
 function ensureAppSettingsModal() {
   var modal = document.getElementById('settings-modal');
@@ -22637,7 +22726,7 @@ function ensureAppSettingsModal() {
   modal.innerHTML =
     '<div class="settings-dialog" role="dialog" aria-modal="true" aria-label="设置">' +
       '<div class="settings-head">' +
-        '<div><div class="settings-title">设置</div><div class="settings-sub">窗口、系统与快捷入口</div></div>' +
+        '<div><div class="settings-title">设置</div><div class="settings-sub">窗口、系统、登录与快捷入口</div></div>' +
         '<button class="settings-close" type="button" data-settings-close aria-label="关闭">×</button>' +
       '</div>' +
       '<div class="settings-group">' +
@@ -22646,6 +22735,30 @@ function ensureAppSettingsModal() {
           '<div class="settings-row-main">' +
             '<div class="settings-row-label">关闭后保留到系统托盘</div>' +
             '<div class="settings-row-desc">开启后点关闭会隐藏到托盘，音乐可继续播放；完全退出请用托盘菜单「退出」</div>' +
+          '</div>' +
+          '<span class="dot" aria-hidden="true"></span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="settings-group">' +
+        '<div class="settings-group-title">登录设置</div>' +
+        '<div class="settings-row" id="settings-login-netease-row" data-login-provider="netease" role="button" tabindex="0" aria-pressed="true">' +
+          '<div class="settings-row-main">' +
+            '<div class="settings-row-label">网易云音乐</div>' +
+            '<div class="settings-row-desc">控制登录弹窗与账号页的入口显示</div>' +
+          '</div>' +
+          '<span class="dot" aria-hidden="true"></span>' +
+        '</div>' +
+        '<div class="settings-row" id="settings-login-qq-row" data-login-provider="qq" role="button" tabindex="0" aria-pressed="true">' +
+          '<div class="settings-row-main">' +
+            '<div class="settings-row-label">QQ 音乐</div>' +
+            '<div class="settings-row-desc">控制登录弹窗与账号页的入口显示</div>' +
+          '</div>' +
+          '<span class="dot" aria-hidden="true"></span>' +
+        '</div>' +
+        '<div class="settings-row" id="settings-login-kugou-row" data-login-provider="kugou" role="button" tabindex="0" aria-pressed="true">' +
+          '<div class="settings-row-main">' +
+            '<div class="settings-row-label">酷狗概念版</div>' +
+            '<div class="settings-row-desc">控制登录弹窗与账号页的入口显示</div>' +
           '</div>' +
           '<span class="dot" aria-hidden="true"></span>' +
         '</div>' +
@@ -22663,6 +22776,8 @@ function ensureAppSettingsModal() {
     if (e.target === modal || e.target.closest('[data-settings-close]')) closeAppSettings();
     var trayRow = e.target.closest('#settings-close-to-tray-row');
     if (trayRow) toggleCloseToTraySetting();
+    var loginRow = e.target.closest('[data-login-provider]');
+    if (loginRow && !loginRow.classList.contains('locked')) toggleLoginProviderSetting(loginRow.getAttribute('data-login-provider'));
     var hotkeyLink = e.target.closest('#settings-open-hotkeys');
     if (hotkeyLink) {
       closeAppSettings();
@@ -22688,44 +22803,98 @@ function ensureAppSettingsModal() {
       }
     });
   }
+  LOGIN_PROVIDER_KEYS.forEach(function(key){
+    var row = modal.querySelector('#settings-login-' + key + '-row');
+    if (!row) return;
+    row.addEventListener('keydown', function(e){
+      if (row.classList.contains('locked')) return;
+      if (e.code === 'Enter' || e.code === 'Space') {
+        e.preventDefault();
+        toggleLoginProviderSetting(key);
+      }
+    });
+  });
   return modal;
 }
 function renderAppSettings() {
-  var modal = ensureAppSettingsModal();
-  var row = document.getElementById('settings-close-to-tray-row');
-  if (!row) return;
-  var on = !!appSettingsState.closeToTray;
-  row.classList.toggle('on', on);
-  row.setAttribute('aria-pressed', on ? 'true' : 'false');
+  ensureAppSettingsModal();
+  var trayRow = document.getElementById('settings-close-to-tray-row');
+  if (trayRow) {
+    var trayOn = !!appSettingsState.closeToTray;
+    trayRow.classList.toggle('on', trayOn);
+    trayRow.setAttribute('aria-pressed', trayOn ? 'true' : 'false');
+  }
+  var visibility = getLoginProviderVisibility();
+  LOGIN_PROVIDER_KEYS.forEach(function(key){
+    var row = document.getElementById('settings-login-' + key + '-row');
+    if (!row) return;
+    var loggedIn = hasPlatformLogin(key);
+    var on = visibility[key] !== false;
+    row.classList.toggle('on', on);
+    row.classList.toggle('locked', loggedIn);
+    row.setAttribute('aria-pressed', on ? 'true' : 'false');
+    row.setAttribute('aria-disabled', loggedIn ? 'true' : 'false');
+    row.tabIndex = loggedIn ? -1 : 0;
+    var desc = row.querySelector('.settings-row-desc');
+    if (desc) {
+      desc.textContent = loggedIn
+        ? '已登录，需先退出后才能隐藏该平台'
+        : '控制登录弹窗与账号页的入口显示';
+    }
+  });
 }
 function loadAppSettings() {
   var api = getDesktopWindowApi && getDesktopWindowApi();
   if (!api || typeof api.getAppSettings !== 'function') {
+    mergeAppSettingsState(readAppSettingsLocal());
     appSettingsLoaded = true;
+    renderAppSettings();
+    applyLoginProviderVisibility({ updateLoginUi: false });
     return Promise.resolve();
   }
   return api.getAppSettings().then(function(res){
-    if (res && res.settings) appSettingsState = Object.assign({ closeToTray: false }, res.settings);
+    mergeAppSettingsState(res && res.settings ? res.settings : {});
     appSettingsLoaded = true;
     renderAppSettings();
+    applyLoginProviderVisibility({ updateLoginUi: false });
   }).catch(function(){
+    mergeAppSettingsState(readAppSettingsLocal());
     appSettingsLoaded = true;
+    renderAppSettings();
+    applyLoginProviderVisibility({ updateLoginUi: false });
   });
 }
 function toggleCloseToTraySetting() {
   var next = !appSettingsState.closeToTray;
-  var api = getDesktopWindowApi && getDesktopWindowApi();
-  if (!api || typeof api.setAppSettings !== 'function') {
-    appSettingsState.closeToTray = next;
-    renderAppSettings();
-    showToast(next ? '已开启：关闭后保留到托盘' : '已关闭：关闭后直接退出');
+  persistAppSettings({ closeToTray: next }).then(function(){
+    showToast(appSettingsState.closeToTray ? '已开启：关闭后保留到托盘' : '已关闭：关闭后直接退出');
+  }).catch(function(){
+    showToast('设置保存失败');
+  });
+}
+function toggleLoginProviderSetting(provider) {
+  provider = normalizeLoginProvider(provider);
+  if (hasPlatformLogin(provider)) {
+    showToast('已登录的平台需先退出后才能隐藏');
     return;
   }
-  api.setAppSettings({ closeToTray: next }).then(function(res){
-    if (res && res.settings) appSettingsState = Object.assign(appSettingsState, res.settings);
-    else appSettingsState.closeToTray = next;
-    renderAppSettings();
-    showToast(appSettingsState.closeToTray ? '已开启：关闭后保留到托盘' : '已关闭：关闭后直接退出');
+  var visibility = getLoginProviderVisibility();
+  var next = !visibility[provider];
+  if (!next) {
+    var enabledCount = LOGIN_PROVIDER_KEYS.filter(function(key){ return visibility[key] !== false; }).length;
+    if (enabledCount <= 1) {
+      showToast('至少保留一种登录方式');
+      return;
+    }
+  }
+  var nextProviders = {};
+  LOGIN_PROVIDER_KEYS.forEach(function(key){
+    nextProviders[key] = hasPlatformLogin(key) ? true : (visibility[key] !== false);
+  });
+  nextProviders[provider] = next;
+  persistAppSettings({ loginProviders: nextProviders }).then(function(){
+    var meta = platformMeta(provider);
+    showToast(next ? ('已显示 ' + meta.label + ' 登录') : ('已隐藏 ' + meta.label + ' 登录'));
   }).catch(function(){
     showToast('设置保存失败');
   });
@@ -23939,6 +24108,109 @@ function normalizeLoginProvider(provider) {
   if (provider === 'qq' || provider === 'kugou') return provider;
   return 'netease';
 }
+function getLoginProviderVisibility() {
+  var visibility = normalizeLoginProvidersState(appSettingsState && appSettingsState.loginProviders);
+  LOGIN_PROVIDER_KEYS.forEach(function(key){
+    if (hasPlatformLogin(key)) visibility[key] = true;
+  });
+  return visibility;
+}
+function isLoginProviderConfigured(provider) {
+  provider = normalizeLoginProvider(provider);
+  return getLoginProviderVisibility()[provider] !== false;
+}
+function isLoginProviderVisible(provider) {
+  provider = normalizeLoginProvider(provider);
+  if (hasPlatformLogin(provider)) return true;
+  return isLoginProviderConfigured(provider);
+}
+function getVisibleLoginProviders() {
+  return LOGIN_PROVIDER_KEYS.filter(function(key){ return isLoginProviderConfigured(key); });
+}
+function countLoginProviderEntrySlots() {
+  return LOGIN_PROVIDER_KEYS.filter(function(key){
+    return isLoginProviderConfigured(key) || hasPlatformLogin(key);
+  }).length;
+}
+function shouldShowDualAccountEntry() {
+  return countLoginProviderEntrySlots() > 1;
+}
+function ensureVisibleLoginProvider(preferred) {
+  preferred = normalizeLoginProvider(preferred);
+  if (isLoginProviderConfigured(preferred)) return preferred;
+  var visible = getVisibleLoginProviders();
+  if (visible.length) return visible[0];
+  var logged = LOGIN_PROVIDER_KEYS.filter(function(key){ return hasPlatformLogin(key); });
+  if (logged.length) return logged[0];
+  return LOGIN_PROVIDER_KEYS[0];
+}
+function renderAccountAddButtons(visibility) {
+  visibility = visibility || getLoginProviderVisibility();
+  LOGIN_PROVIDER_KEYS.forEach(function(key){
+    var addBtn = document.getElementById('account-add-' + key);
+    if (!addBtn) return;
+    var showLoginTab = visibility[key] !== false;
+    var loggedIn = hasPlatformLogin(key);
+    if (!showLoginTab || loggedIn) {
+      addBtn.style.display = 'none';
+      return;
+    }
+    addBtn.style.display = '';
+    var meta = platformMeta(key);
+    addBtn.textContent = key === 'netease' ? '补登网易云' : ('补登 ' + meta.label);
+  });
+}
+function syncLoginProviderSettingsUi() {
+  if (!appSettingsLoaded) return;
+  renderAppSettings();
+  applyLoginProviderVisibility({
+    updateLoginUi: isModalOpen('login-modal'),
+    updateUserUi: isModalOpen('user-modal')
+  });
+}
+function applyLoginProviderVisibility(opts) {
+  opts = opts || {};
+  var visibility = getLoginProviderVisibility();
+  var configuredVisible = getVisibleLoginProviders();
+  var loginTabs = document.getElementById('login-platform-tabs');
+  var userTabs = document.getElementById('user-platform-tabs');
+  var loginBothBtn = document.getElementById('login-both-btn');
+  var userBothBtn = document.getElementById('user-provider-both');
+  var showDualEntry = shouldShowDualAccountEntry();
+  LOGIN_PROVIDER_KEYS.forEach(function(key){
+    var showLoginTab = visibility[key] !== false;
+    var showUserTab = showLoginTab || hasPlatformLogin(key);
+    var loginBtn = document.getElementById('login-provider-' + key);
+    var userBtn = document.getElementById('user-provider-' + key);
+    if (loginBtn) loginBtn.style.display = showLoginTab ? '' : 'none';
+    if (userBtn) userBtn.style.display = showUserTab ? '' : 'none';
+  });
+  renderAccountAddButtons(visibility);
+  if (loginTabs) loginTabs.style.display = configuredVisible.length <= 1 ? 'none' : '';
+  if (userTabs) userTabs.style.display = countLoginProviderEntrySlots() <= 1 ? 'none' : '';
+  if (loginBothBtn) loginBothBtn.style.display = showDualEntry ? '' : 'none';
+  if (userBothBtn) userBothBtn.style.display = showDualEntry ? '' : 'none';
+  if (dualAccountMode && !showDualEntry) {
+    dualAccountMode = false;
+    renderUserBtn();
+  }
+  var nextLoginProvider = ensureVisibleLoginProvider(loginProvider);
+  if (nextLoginProvider !== loginProvider) {
+    loginProvider = nextLoginProvider;
+    if (opts.updateLoginUi !== false && isModalOpen('login-modal')) updateLoginProviderUi();
+  }
+  var nextActiveProvider = activeAccountProvider;
+  if (!isLoginProviderVisible(activeAccountProvider)) {
+    nextActiveProvider = firstLoggedProvider();
+    if (!isLoginProviderVisible(nextActiveProvider)) nextActiveProvider = ensureVisibleLoginProvider(activeAccountProvider);
+  }
+  if (nextActiveProvider !== activeAccountProvider) {
+    activeAccountProvider = nextActiveProvider;
+    if (opts.updateUserUi) updateUserModalUi();
+  } else if (opts.updateUserUi && isModalOpen('user-modal')) {
+    updateUserModalUi();
+  }
+}
 function platformMeta(provider) {
   if (provider === 'qq') return { key: 'qq', short: 'QQ', label: 'QQ 音乐', app: 'QQ 音乐 App', dot: 'qq' };
   if (provider === 'kugou') return { key: 'kugou', short: 'KG', label: '酷狗概念版', app: '酷狗概念版 App', dot: 'kugou' };
@@ -24022,6 +24294,7 @@ async function refreshLoginStatus(force) {
     loginStatus = info || { loggedIn: false };
     if (loginStatus.loggedIn && !hasPlatformLogin(activeAccountProvider)) activeAccountProvider = 'netease';
     renderUserBtn();
+    syncLoginProviderSettingsUi();
     if (info && info.loggedIn) {
       homeDiscoverState.loaded = false;
       homeDiscoverState.loggedIn = true;
@@ -24042,6 +24315,7 @@ async function refreshLoginStatus(force) {
     loginStatusChecked = true;
     loginStatusCheckFailed = true;
     renderUserBtn();
+    syncLoginProviderSettingsUi();
     return null;
   }
 }
@@ -24111,11 +24385,13 @@ async function refreshKugouLoginStatus(opts) {
     kugouLoginWasLoggedIn = !!kugouLoginStatus.loggedIn;
     if (!hasPlatformLogin(activeAccountProvider)) activeAccountProvider = firstLoggedProvider();
     renderUserBtn();
+    syncLoginProviderSettingsUi();
     return kugouLoginStatus;
   } catch (e) {
     console.warn('Kugou login status failed:', e);
     kugouLoginStatus = normalizeKugouLoginStatus(null);
     renderUserBtn();
+    syncLoginProviderSettingsUi();
     return kugouLoginStatus;
   }
 }
@@ -24146,11 +24422,13 @@ async function refreshQQLoginStatus() {
     qqLoginWasLoggedIn = !!qqLoginStatus.loggedIn;
     if (!hasPlatformLogin(activeAccountProvider)) activeAccountProvider = firstLoggedProvider();
     renderUserBtn();
+    syncLoginProviderSettingsUi();
     return qqLoginStatus;
   } catch (e) {
     console.warn('QQ login status failed:', e);
     qqLoginStatus = normalizeQQLoginStatus(null);
     renderUserBtn();
+    syncLoginProviderSettingsUi();
     return qqLoginStatus;
   }
 }
@@ -24192,6 +24470,8 @@ function renderUserBtn() {
 async function showLoginModal(opts) {
   opts = opts || {};
   if (opts.provider) loginProvider = normalizeLoginProvider(opts.provider);
+  applyLoginProviderVisibility({ updateLoginUi: false });
+  loginProvider = ensureVisibleLoginProvider(loginProvider);
   var modal = document.getElementById('login-modal');
   openGsapModal(modal);
   updateLoginProviderUi();
@@ -24202,7 +24482,13 @@ function closeLoginModal() {
   closeGsapModal(document.getElementById('login-modal'));
 }
 function setLoginProvider(provider, silent) {
-  loginProvider = normalizeLoginProvider(provider);
+  provider = normalizeLoginProvider(provider);
+  if (!isLoginProviderConfigured(provider)) {
+    var fallback = ensureVisibleLoginProvider(provider);
+    if (!silent) showToast('该平台登录入口已隐藏');
+    provider = fallback;
+  }
+  loginProvider = provider;
   updateLoginProviderUi();
   if (!silent && document.getElementById('login-modal').classList.contains('show')) refreshQr();
 }
@@ -24602,8 +24888,6 @@ function updateUserModalUi() {
   var vipEl = document.getElementById('user-modal-vip');
   var hint = document.getElementById('account-hint');
   var logoutBtn = document.getElementById('account-logout-btn');
-  var addNetease = document.getElementById('account-add-netease');
-  var addQQ = document.getElementById('account-add-qq');
   if (chip) {
     chip.className = 'account-provider-chip ' + activeAccountProvider;
     chip.innerHTML = '<span class="account-source-dot ' + meta.dot + '"></span><span>' + meta.label + '</span>';
@@ -24630,16 +24914,13 @@ function updateUserModalUi() {
     var btn = document.getElementById('user-provider-' + key);
     if (btn) btn.classList.toggle('active', key === 'both' ? dualAccountMode : (!dualAccountMode && activeAccountProvider === key));
   });
-  var addKugou = document.getElementById('account-add-kugou');
-  if (addNetease) addNetease.style.display = hasPlatformLogin('netease') ? 'none' : '';
-  if (addQQ) addQQ.textContent = hasPlatformLogin('qq') ? '查看 QQ 音乐' : '补登 QQ 音乐';
-  if (addKugou) addKugou.textContent = hasPlatformLogin('kugou') ? '查看酷狗' : '补登酷狗';
   if (logoutBtn) {
     logoutBtn.textContent = activeAccountProvider === 'qq' ? '退出 QQ 音乐' : (activeAccountProvider === 'kugou' ? '退出酷狗' : '退出网易云');
   }
   if (hint) hint.textContent = dualAccountMode
     ? '右上角已切换为多平台并排展示。'
     : '可切换右上角展示的平台；“多平台”会并排显示已登录账号。';
+  applyLoginProviderVisibility({ updateUserUi: false });
 }
 function showUserModal() {
   if (!hasAnyPlatformLogin()) return showLoginModal();
@@ -24673,6 +24954,10 @@ function requestDualLoginMode() {
 }
 function openProviderLogin(provider) {
   provider = normalizeLoginProvider(provider);
+  if (!isLoginProviderConfigured(provider)) {
+    showToast('该平台登录入口已隐藏');
+    provider = ensureVisibleLoginProvider(provider);
+  }
   closeUserModal();
   loginProvider = provider;
   showLoginModal({ provider: provider });
