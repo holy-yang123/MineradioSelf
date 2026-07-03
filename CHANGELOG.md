@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.1.3
+
+- 新增酷狗概念版第三音乐源：搜索、播放、歌词、扫码登录、个人歌单、歌手页、评论与三源自动换源。
+- 搜索区新增 `KG` 筛选；`All` 模式并行合并网易云、QQ 音乐、酷狗概念版结果（未登录酷狗且搜索词未指向酷狗时跳过 KG 请求）。
+- 登录/账号页新增酷狗 Tab，支持概念版 App 扫码与 cookie 手动导入。
+- 修复退出网易云后误清酷狗歌单缓存；酷狗歌单/曲目支持分页拉取；评论接口优先使用 mixsongid。
+- 主页发现支持 QQ / 酷狗单平台登录；酷狗分页并行拉取并返回 truncated；KG 搜索与自动换源在未登录时跳过；apiJson 校验 HTTP 状态；酷狗非 VIP 播放音质上限；试听条按当前音源打开登录。
+
+## v1.1.2
+
+- 新增设置面板：标题栏齿轮按钮打开，首版支持「关闭后保留到系统托盘」开关（默认关闭，保持原有关闭行为）。
+- 新增系统托盘：开启后点关闭会隐藏到托盘，音乐可继续播放；托盘双击或右键「显示」可恢复窗口，「退出」完全结束程序。
+
 ## v1.1.1
 
 - P0 installer safety fix: installation now defaults to the first available non-C drive from `D:\Mineradio` through `Z:\Mineradio`; it falls back to `C:\Mineradio` only when no D-Z drive exists.
