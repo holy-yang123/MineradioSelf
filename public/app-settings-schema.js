@@ -20,10 +20,25 @@
     return normalizeLoginProviders(Object.assign({}, normalizeLoginProviders(base), patch || {}));
   }
 
+  function normalizeStartupPrefs(value) {
+    var source = value && typeof value === 'object' ? value : {};
+    return {
+      skipSplashOnStartup: !!source.skipSplashOnStartup,
+      // 默认开启自动视觉引导；仅显式 false 时关闭
+      autoVisualGuide: source.autoVisualGuide !== false
+    };
+  }
+
+  function mergeStartupPrefs(base, patch) {
+    return normalizeStartupPrefs(Object.assign({}, normalizeStartupPrefs(base), patch || {}));
+  }
+
   return {
     LOGIN_PROVIDER_KEYS: LOGIN_PROVIDER_KEYS,
     DEFAULT_LOGIN_PROVIDERS: DEFAULT_LOGIN_PROVIDERS,
     normalizeLoginProviders: normalizeLoginProviders,
-    mergeLoginProviders: mergeLoginProviders
+    mergeLoginProviders: mergeLoginProviders,
+    normalizeStartupPrefs: normalizeStartupPrefs,
+    mergeStartupPrefs: mergeStartupPrefs
   };
 });
