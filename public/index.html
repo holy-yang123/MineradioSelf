@@ -15614,6 +15614,20 @@ function beginListenSession(song, context) {
     maxProgress: 0,
   };
 }
+// 仅刷新指定 session 的收听时长，不触发 begin/finalize，避免切歌时递归爆栈
+function flushListenSessionTick(session, force) {
+  if (!session || !audio || !audio.duration || audio.paused) return;
+  var now = Date.now();
+  var audioTime = isFinite(audio.currentTime) ? audio.currentTime : 0;
+  var deltaByAudio = Math.max(0, audioTime - (session.lastAudioTime || 0)) * 1000;
+  var deltaByWall = Math.max(0, now - (session.lastWallAt || now));
+  var delta = deltaByAudio > 0 ? Math.min(deltaByAudio, deltaByWall || deltaByAudio, 4200) : 0;
+  if (force && delta <= 0) delta = Math.min(deltaByWall, 1500);
+  if (delta > 0 && delta < 8000) session.listenMs += delta;
+  session.lastWallAt = now;
+  session.lastAudioTime = audioTime;
+  session.maxProgress = Math.max(session.maxProgress || 0, audio.duration ? audioTime / audio.duration : 0);
+}
 function updateListenStatsTick(force) {
   if (!audio || !audio.duration || audio.paused) return;
   var song = currentCoverSong();
@@ -15621,22 +15635,13 @@ function updateListenStatsTick(force) {
   var key = queueItemKey(song);
   if (!listenSession || listenSession.key !== key) beginListenSession(song, activeRadioContext);
   if (!listenSession) return;
-  var now = Date.now();
-  var audioTime = isFinite(audio.currentTime) ? audio.currentTime : 0;
-  var deltaByAudio = Math.max(0, audioTime - (listenSession.lastAudioTime || 0)) * 1000;
-  var deltaByWall = Math.max(0, now - (listenSession.lastWallAt || now));
-  var delta = deltaByAudio > 0 ? Math.min(deltaByAudio, deltaByWall || deltaByAudio, 4200) : 0;
-  if (force && delta <= 0) delta = Math.min(deltaByWall, 1500);
-  if (delta > 0 && delta < 8000) listenSession.listenMs += delta;
-  listenSession.lastWallAt = now;
-  listenSession.lastAudioTime = audioTime;
-  listenSession.maxProgress = Math.max(listenSession.maxProgress || 0, audio.duration ? audioTime / audio.duration : 0);
+  flushListenSessionTick(listenSession, force);
 }
 function finalizeListenSession(completed) {
   if (!listenSession) return;
-  updateListenStatsTick(true);
   var session = listenSession;
-  listenSession = null;
+  listenSession = null; // 先清空全局 session，阻断 finalize → tick → begin → finalize 无限递归
+  flushListenSessionTick(session, true);
   var effective = completed || session.listenMs >= 45000 || session.maxProgress >= 0.5 || (!audio || !audio.duration ? session.listenMs >= 30000 : false);
   if (!effective) return;
   var now = Date.now();
