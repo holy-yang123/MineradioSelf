@@ -29,7 +29,12 @@ const {
   mergeLoginProviders,
 } = require('../public/app-settings-schema.js');
 
-let appSettings = { closeToTray: false, loginProviders: { ...DEFAULT_LOGIN_PROVIDERS } };
+let appSettings = {
+  closeToTray: false,
+  loginProviders: { ...DEFAULT_LOGIN_PROVIDERS },
+  skipSplashOnStartup: false,
+  autoVisualGuide: true,
+};
 let appIsQuitting = false;
 const registeredGlobalHotkeys = new Map();
 
@@ -285,16 +290,18 @@ function readAppSettings() {
   try {
     const filePath = getAppSettingsPath();
     if (!fs.existsSync(filePath)) {
-      return { closeToTray: false, loginProviders: { ...DEFAULT_LOGIN_PROVIDERS } };
+      return { closeToTray: false, loginProviders: { ...DEFAULT_LOGIN_PROVIDERS }, skipSplashOnStartup: false, autoVisualGuide: true };
     }
     const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     return {
       closeToTray: !!(parsed && parsed.closeToTray),
       loginProviders: normalizeLoginProviders(parsed && parsed.loginProviders),
+      skipSplashOnStartup: !!(parsed && parsed.skipSplashOnStartup),
+      autoVisualGuide: parsed && parsed.autoVisualGuide === false ? false : true,
     };
   } catch (e) {
     console.warn('App settings read failed:', e.message);
-    return { closeToTray: false, loginProviders: { ...DEFAULT_LOGIN_PROVIDERS } };
+    return { closeToTray: false, loginProviders: { ...DEFAULT_LOGIN_PROVIDERS }, skipSplashOnStartup: false, autoVisualGuide: true };
   }
 }
 
@@ -304,6 +311,8 @@ function writeAppSettings(partial) {
     if (partial.loginProviders && typeof partial.loginProviders === 'object') {
       appSettings.loginProviders = mergeLoginProviders(appSettings.loginProviders, partial.loginProviders);
     }
+    if (typeof partial.skipSplashOnStartup === 'boolean') appSettings.skipSplashOnStartup = partial.skipSplashOnStartup;
+    if (typeof partial.autoVisualGuide === 'boolean') appSettings.autoVisualGuide = partial.autoVisualGuide;
   }
   try {
     fs.writeFileSync(getAppSettingsPath(), JSON.stringify(appSettings, null, 2), 'utf8');

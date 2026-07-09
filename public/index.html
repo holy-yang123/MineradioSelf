@@ -13,6 +13,13 @@
 <script>
 try {
   document.documentElement.classList.add(localStorage.getItem('mineradio-diy-player-mode-v1') === '1' ? 'diy-mode-preload' : 'simple-mode-preload');
+  // 预读跳过开屏偏好，避免首帧闪一下开屏层再被 JS 关掉
+  var skipSplashPreload = localStorage.getItem('mineradio-skip-splash-v1') === '1';
+  if (!skipSplashPreload) {
+    var appSettingsPreload = JSON.parse(localStorage.getItem('mineradio-app-settings-v1') || '{}') || {};
+    skipSplashPreload = !!appSettingsPreload.skipSplashOnStartup;
+  }
+  if (skipSplashPreload) document.documentElement.classList.add('skip-splash-preload');
 } catch (e) {
   document.documentElement.classList.add('simple-mode-preload');
 }
@@ -156,6 +163,14 @@ body.splash-active:not(.splash-revealing) #hint,body.splash-active:not(.splash-r
 body.splash-active:not(.splash-revealing) #hint{transform:translate(-50%,-44%) scale(.985);filter:blur(12px)}
 body.splash-active.splash-revealing #hint:not(.hidden){opacity:1;transform:translate(-50%,-50%) scale(1);filter:blur(0);transition:opacity 1300ms 260ms cubic-bezier(.32,0,.1,1),transform 1300ms 260ms cubic-bezier(.32,0,.1,1),filter 1300ms 260ms cubic-bezier(.32,0,.1,1)}
 body.splash-active.splash-revealing #top-right{opacity:1;transition:opacity 1100ms 520ms cubic-bezier(.32,0,.1,1)}
+/* 跳过开屏：首帧直接露出主界面，避免开屏层闪一下 */
+html.skip-splash-preload #splash{opacity:0!important;visibility:hidden!important;pointer-events:none!important}
+html.skip-splash-preload body.splash-active #canvas-container{opacity:1!important;transition:none!important}
+html.skip-splash-preload body.splash-active #hint:not(.hidden){opacity:1!important;transform:translate(-50%,-50%) scale(1)!important;filter:none!important;pointer-events:none!important;transition:none!important}
+html.skip-splash-preload body.splash-active #top-right{opacity:1!important;pointer-events:auto!important;transition:none!important}
+html.skip-splash-preload body.splash-active #search-area{opacity:1!important;pointer-events:auto!important;transition:none!important}
+body.splash-instant-exit #splash,
+body.splash-instant-exit #splash #splash-canvas{transition:none!important}
 
 /* ---------- 顶部搜索 (半隐藏) ---------- */
 #search-area{--search-offset:0px;position:fixed;z-index:10;top:-76px;left:50%;transform:translateX(calc(-50% + var(--search-offset)));width:auto;display:flex;align-items:flex-start;gap:12px;transition:top .45s cubic-bezier(.2,.7,.2,1),opacity .35s,transform .35s cubic-bezier(.2,.7,.2,1);opacity:0;pointer-events:none}
@@ -1387,6 +1402,23 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
 .settings-mini-btn:hover:not(:disabled){background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.16);color:#fff}
 .settings-mini-btn:disabled{opacity:.42;cursor:default}
 .settings-mini-btn.armed{border-color:rgba(255,120,120,.42);background:rgba(255,83,103,.12);color:#ffd0d6}
+/* 设置分组折叠：收起时只显示标题与一行摘要，避免子项过多显得臃肿 */
+.settings-fold .settings-group-title{margin:0}
+.settings-fold-head{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin:0;padding:11px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.065);background:rgba(255,255,255,.028);color:inherit;font:inherit;text-align:left;cursor:pointer;transition:background .18s,border-color .18s}
+.settings-fold-head:hover{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.10)}
+.settings-fold-head-main{min-width:0;flex:1}
+.settings-fold-hint{margin-top:5px;font-size:11px;line-height:1.45;color:rgba(255,255,255,.42);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.settings-fold-arrow{flex:0 0 auto;font-size:14px;color:rgba(255,255,255,.34);transition:transform .2s}
+.settings-fold.open .settings-fold-arrow{transform:rotate(90deg)}
+.settings-fold-body{display:none;margin-top:6px}
+.settings-fold.open .settings-fold-body{display:block}
+/* 设置/热键弹窗细滚动条，对齐其他面板的暗色细轨风格 */
+.settings-dialog,.hotkey-dialog{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.14) transparent}
+.settings-dialog::-webkit-scrollbar,.hotkey-dialog::-webkit-scrollbar{width:4px}
+.settings-dialog::-webkit-scrollbar-track,.hotkey-dialog::-webkit-scrollbar-track{background:transparent}
+.settings-dialog::-webkit-scrollbar-thumb,.hotkey-dialog::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:4px}
+.settings-dialog::-webkit-scrollbar-thumb:hover,.hotkey-dialog::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.22)}
+.settings-dialog::-webkit-scrollbar-button,.hotkey-dialog::-webkit-scrollbar-button{display:none;height:0;width:0}
 @media (max-width:720px){
   .hotkey-row{grid-template-columns:1fr;gap:7px}
   .hotkey-toolbar{align-items:flex-start;flex-direction:column}
@@ -22650,9 +22682,11 @@ function closeHotkeySettings() {
   if (modal) modal.classList.remove('show', 'capturing');
 }
 
-var appSettingsState = { closeToTray: false, loginProviders: { netease: true, qq: true, kugou: true } };
+var appSettingsState = { closeToTray: false, loginProviders: { netease: true, qq: true, kugou: true }, skipSplashOnStartup: false, autoVisualGuide: true };
 var appSettingsLoaded = false;
 var APP_SETTINGS_STORE_KEY = 'mineradio-app-settings-v1';
+var SKIP_SPLASH_STORE_KEY = 'mineradio-skip-splash-v1';
+var AUTO_VISUAL_GUIDE_STORE_KEY = 'mineradio-auto-visual-guide-v1';
 var AppSettingsSchema = window.MineradioAppSettings || {};
 var LOGIN_PROVIDER_KEYS = AppSettingsSchema.LOGIN_PROVIDER_KEYS || ['netease', 'qq', 'kugou'];
 var SETTINGS_CONFIRM_MS = 3000;
@@ -22664,6 +22698,37 @@ var FX_LAYOUT_RESTORE_KEYS = [
   'desktopLyricsSize', 'desktopLyricsOpacity', 'desktopLyricsY'
 ];
 
+function readSkipSplashPreference() {
+  try {
+    var mirror = localStorage.getItem(SKIP_SPLASH_STORE_KEY);
+    if (mirror != null) return mirror === '1';
+    var raw = JSON.parse(localStorage.getItem(APP_SETTINGS_STORE_KEY) || '{}') || {};
+    return !!raw.skipSplashOnStartup;
+  } catch (e) { return false; }
+}
+function readAutoVisualGuidePreference() {
+  try {
+    var mirror = localStorage.getItem(AUTO_VISUAL_GUIDE_STORE_KEY);
+    if (mirror != null) return mirror === '1';
+    var raw = JSON.parse(localStorage.getItem(APP_SETTINGS_STORE_KEY) || '{}') || {};
+    if (raw.autoVisualGuide === false) return false;
+    return true;
+  } catch (e) { return true; }
+}
+function syncStartupSettingsMirrors() {
+  try {
+    localStorage.setItem(SKIP_SPLASH_STORE_KEY, appSettingsState.skipSplashOnStartup ? '1' : '0');
+    localStorage.setItem(AUTO_VISUAL_GUIDE_STORE_KEY, appSettingsState.autoVisualGuide !== false ? '1' : '0');
+  } catch (e) {}
+}
+function normalizeStartupSettingsState(value) {
+  if (AppSettingsSchema.normalizeStartupPrefs) return AppSettingsSchema.normalizeStartupPrefs(value);
+  var source = value && typeof value === 'object' ? value : {};
+  return {
+    skipSplashOnStartup: !!source.skipSplashOnStartup,
+    autoVisualGuide: source.autoVisualGuide !== false
+  };
+}
 function formatCacheBytes(bytes) {
   bytes = Number(bytes) || 0;
   if (bytes < 1024) return bytes + ' B';
@@ -22808,9 +22873,38 @@ function beatDiskCacheReasonLabel(reason) {
   if (reason === 'TARGET_DRIVE_UNAVAILABLE') return '目标盘不可用';
   return reason || '不可用';
 }
+function loginProviderFoldLabel(key) {
+  if (key === 'netease') return '网易云';
+  if (key === 'qq') return 'QQ';
+  if (key === 'kugou') return '酷狗';
+  return key;
+}
+function toggleSettingsFold(head) {
+  var fold = head && head.closest('.settings-fold');
+  if (!fold || !head) return;
+  var open = !fold.classList.contains('open');
+  fold.classList.toggle('open', open);
+  head.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+function updateSettingsLoginFoldHint() {
+  var hint = document.getElementById('settings-login-fold-hint');
+  if (!hint) return;
+  var visibility = getLoginProviderVisibility();
+  var visible = LOGIN_PROVIDER_KEYS.filter(function(key){ return visibility[key] !== false; });
+  var hidden = LOGIN_PROVIDER_KEYS.length - visible.length;
+  var text = visible.map(loginProviderFoldLabel).join(' · ');
+  if (!text) text = '全部已隐藏';
+  else if (hidden > 0) text += '（已隐藏 ' + hidden + '）';
+  hint.textContent = text;
+}
+function updateSettingsRestoreFoldHint() {
+  var hint = document.getElementById('settings-restore-fold-hint');
+  if (hint) hint.textContent = '视觉 / 布局 / 性能';
+}
 function renderCacheSettingsPanel() {
   var list = document.getElementById('settings-cache-list');
   var totalEl = document.getElementById('settings-cache-total');
+  var foldHint = document.getElementById('settings-cache-fold-hint');
   if (!list) return;
   var local = getLocalCacheUsageReport();
   var server = cacheSettingsState.server || {};
@@ -22818,11 +22912,11 @@ function renderCacheSettingsPanel() {
   var updates = server.updates || {};
   var serverTotal = (Number(beat.bytes) || 0) + (Number(updates.bytes) || 0);
   var grandTotal = local.localTotal + serverTotal;
-  if (totalEl) {
-    totalEl.textContent = cacheSettingsState.loading
-      ? '正在统计缓存占用…'
-      : ('合计约 ' + formatCacheBytes(grandTotal) + '（本地 ' + formatCacheBytes(local.localTotal) + ' / 磁盘 ' + formatCacheBytes(serverTotal) + '）');
-  }
+  var totalText = cacheSettingsState.loading
+    ? '正在统计缓存占用…'
+    : ('合计约 ' + formatCacheBytes(grandTotal) + '（本地 ' + formatCacheBytes(local.localTotal) + ' / 磁盘 ' + formatCacheBytes(serverTotal) + '）');
+  if (totalEl) totalEl.textContent = totalText;
+  if (foldHint) foldHint.textContent = totalText;
   var rows = [
     { id: 'local-beat', label: '节奏分析（本地）', size: formatCacheBytes(local.localBeatBytes), canClear: true },
     {
@@ -22902,6 +22996,8 @@ function cloneAppSettingsState() {
   return {
     closeToTray: !!appSettingsState.closeToTray,
     loginProviders: normalizeLoginProvidersState(appSettingsState.loginProviders),
+    skipSplashOnStartup: !!appSettingsState.skipSplashOnStartup,
+    autoVisualGuide: appSettingsState.autoVisualGuide !== false,
   };
 }
 function isModalOpen(id) {
@@ -22915,9 +23011,14 @@ function mergeAppSettingsState(partial) {
   var mergedProviders = AppSettingsSchema.mergeLoginProviders
     ? AppSettingsSchema.mergeLoginProviders(previous.loginProviders, partial.loginProviders)
     : normalizeLoginProvidersState(Object.assign({}, normalizeLoginProvidersState(previous.loginProviders), partial.loginProviders || {}));
+  var mergedStartup = AppSettingsSchema.mergeStartupPrefs
+    ? AppSettingsSchema.mergeStartupPrefs(previous, partial)
+    : normalizeStartupSettingsState(Object.assign({}, normalizeStartupSettingsState(previous), partial || {}));
   appSettingsState = {
     closeToTray: typeof partial.closeToTray === 'boolean' ? partial.closeToTray : !!previous.closeToTray,
     loginProviders: mergedProviders,
+    skipSplashOnStartup: mergedStartup.skipSplashOnStartup,
+    autoVisualGuide: mergedStartup.autoVisualGuide,
   };
   return appSettingsState;
 }
@@ -22940,6 +23041,7 @@ function persistAppSettings(patch) {
   var snapshot = cloneAppSettingsState();
   var api = getDesktopWindowApi && getDesktopWindowApi();
   var onSuccess = function(){
+    syncStartupSettingsMirrors();
     renderAppSettings();
     applyLoginProviderVisibility({
       updateLoginUi: true,
@@ -22986,7 +23088,7 @@ function ensureAppSettingsModal() {
   modal.innerHTML =
     '<div class="settings-dialog" role="dialog" aria-modal="true" aria-label="设置">' +
       '<div class="settings-head">' +
-        '<div><div class="settings-title">设置</div><div class="settings-sub">窗口、系统、登录与快捷入口</div></div>' +
+        '<div><div class="settings-title">设置</div><div class="settings-sub">窗口、系统、启动、登录与快捷入口</div></div>' +
         '<button class="settings-close" type="button" data-settings-close aria-label="关闭">×</button>' +
       '</div>' +
       '<div class="settings-group">' +
@@ -23000,60 +23102,101 @@ function ensureAppSettingsModal() {
         '</div>' +
       '</div>' +
       '<div class="settings-group">' +
-        '<div class="settings-group-title">登录设置</div>' +
-        '<div class="settings-row" id="settings-login-netease-row" data-login-provider="netease" role="button" tabindex="0" aria-pressed="true">' +
+        '<div class="settings-group-title">启动</div>' +
+        '<div class="settings-row" id="settings-skip-splash-row" role="button" tabindex="0" aria-pressed="false">' +
           '<div class="settings-row-main">' +
-            '<div class="settings-row-label">网易云音乐</div>' +
-            '<div class="settings-row-desc">控制登录弹窗与账号页的入口显示</div>' +
+            '<div class="settings-row-label">跳过开屏动画</div>' +
+            '<div class="settings-row-desc">下次启动时直接进入主界面，不再播放开屏动画</div>' +
           '</div>' +
           '<span class="dot" aria-hidden="true"></span>' +
         '</div>' +
-        '<div class="settings-row" id="settings-login-qq-row" data-login-provider="qq" role="button" tabindex="0" aria-pressed="true">' +
+        '<div class="settings-row" id="settings-auto-visual-guide-row" role="button" tabindex="0" aria-pressed="true">' +
           '<div class="settings-row-main">' +
-            '<div class="settings-row-label">QQ 音乐</div>' +
-            '<div class="settings-row-desc">控制登录弹窗与账号页的入口显示</div>' +
-          '</div>' +
-          '<span class="dot" aria-hidden="true"></span>' +
-        '</div>' +
-        '<div class="settings-row" id="settings-login-kugou-row" data-login-provider="kugou" role="button" tabindex="0" aria-pressed="true">' +
-          '<div class="settings-row-main">' +
-            '<div class="settings-row-label">酷狗概念版</div>' +
-            '<div class="settings-row-desc">控制登录弹窗与账号页的入口显示</div>' +
+            '<div class="settings-row-label">自动显示视觉引导</div>' +
+            '<div class="settings-row-desc">关闭后启动时不再自动弹出；仍可从标题栏「?」手动查看</div>' +
           '</div>' +
           '<span class="dot" aria-hidden="true"></span>' +
         '</div>' +
       '</div>' +
-      '<div class="settings-group">' +
-        '<div class="settings-group-title">一键恢复</div>' +
-        '<div class="settings-restore-row" data-settings-restore="visual" data-desc-default="恢复到内置「默认测试」视觉快照，不影响登录与用户存档" role="button" tabindex="0">' +
-          '<div class="settings-row-main">' +
-            '<div class="settings-row-label">恢复默认视觉</div>' +
-            '<div class="settings-row-desc">恢复到内置「默认测试」视觉快照，不影响登录与用户存档</div>' +
+      '<div class="settings-group settings-fold" id="settings-login-fold">' +
+        '<button type="button" class="settings-fold-head" aria-expanded="false">' +
+          '<div class="settings-fold-head-main">' +
+            '<div class="settings-group-title">登录设置</div>' +
+            '<div class="settings-fold-hint" id="settings-login-fold-hint">网易云 · QQ · 酷狗</div>' +
           '</div>' +
-          '<span class="settings-link-arrow" aria-hidden="true">›</span>' +
-        '</div>' +
-        '<div class="settings-restore-row" data-settings-restore="layout" data-desc-default="仅重置歌词位置、歌单架布局与自由镜头，保留当前视觉调参" role="button" tabindex="0">' +
-          '<div class="settings-row-main">' +
-            '<div class="settings-row-label">仅恢复布局</div>' +
-            '<div class="settings-row-desc">仅重置歌词位置、歌单架布局与自由镜头，保留当前视觉调参</div>' +
+          '<span class="settings-fold-arrow" aria-hidden="true">›</span>' +
+        '</button>' +
+        '<div class="settings-fold-body">' +
+          '<div class="settings-row" id="settings-login-netease-row" data-login-provider="netease" role="button" tabindex="0" aria-pressed="true">' +
+            '<div class="settings-row-main">' +
+              '<div class="settings-row-label">网易云音乐</div>' +
+              '<div class="settings-row-desc">控制登录弹窗与账号页的入口显示</div>' +
+            '</div>' +
+            '<span class="dot" aria-hidden="true"></span>' +
           '</div>' +
-          '<span class="settings-link-arrow" aria-hidden="true">›</span>' +
-        '</div>' +
-        '<div class="settings-restore-row" data-settings-restore="performance" data-desc-default="仅重置性能档位、后台策略与封面粒子分辨率" role="button" tabindex="0">' +
-          '<div class="settings-row-main">' +
-            '<div class="settings-row-label">仅恢复性能</div>' +
-            '<div class="settings-row-desc">仅重置性能档位、后台策略与封面粒子分辨率</div>' +
+          '<div class="settings-row" id="settings-login-qq-row" data-login-provider="qq" role="button" tabindex="0" aria-pressed="true">' +
+            '<div class="settings-row-main">' +
+              '<div class="settings-row-label">QQ 音乐</div>' +
+              '<div class="settings-row-desc">控制登录弹窗与账号页的入口显示</div>' +
+            '</div>' +
+            '<span class="dot" aria-hidden="true"></span>' +
           '</div>' +
-          '<span class="settings-link-arrow" aria-hidden="true">›</span>' +
+          '<div class="settings-row" id="settings-login-kugou-row" data-login-provider="kugou" role="button" tabindex="0" aria-pressed="true">' +
+            '<div class="settings-row-main">' +
+              '<div class="settings-row-label">酷狗概念版</div>' +
+              '<div class="settings-row-desc">控制登录弹窗与账号页的入口显示</div>' +
+            '</div>' +
+            '<span class="dot" aria-hidden="true"></span>' +
+          '</div>' +
         '</div>' +
       '</div>' +
-      '<div class="settings-group" id="settings-cache-group">' +
-        '<div class="settings-group-title">缓存与磁盘管理</div>' +
-        '<div class="settings-cache-summary">' +
-          '<span id="settings-cache-total">统计中…</span>' +
-          '<button type="button" class="settings-mini-btn" id="settings-cache-refresh">刷新</button>' +
+      '<div class="settings-group settings-fold" id="settings-restore-fold">' +
+        '<button type="button" class="settings-fold-head" aria-expanded="false">' +
+          '<div class="settings-fold-head-main">' +
+            '<div class="settings-group-title">一键恢复</div>' +
+            '<div class="settings-fold-hint" id="settings-restore-fold-hint">视觉 / 布局 / 性能</div>' +
+          '</div>' +
+          '<span class="settings-fold-arrow" aria-hidden="true">›</span>' +
+        '</button>' +
+        '<div class="settings-fold-body">' +
+          '<div class="settings-restore-row" data-settings-restore="visual" data-desc-default="恢复到内置「默认测试」视觉快照，不影响登录与用户存档" role="button" tabindex="0">' +
+            '<div class="settings-row-main">' +
+              '<div class="settings-row-label">恢复默认视觉</div>' +
+              '<div class="settings-row-desc">恢复到内置「默认测试」视觉快照，不影响登录与用户存档</div>' +
+            '</div>' +
+            '<span class="settings-link-arrow" aria-hidden="true">›</span>' +
+          '</div>' +
+          '<div class="settings-restore-row" data-settings-restore="layout" data-desc-default="仅重置歌词位置、歌单架布局与自由镜头，保留当前视觉调参" role="button" tabindex="0">' +
+            '<div class="settings-row-main">' +
+              '<div class="settings-row-label">仅恢复布局</div>' +
+              '<div class="settings-row-desc">仅重置歌词位置、歌单架布局与自由镜头，保留当前视觉调参</div>' +
+            '</div>' +
+            '<span class="settings-link-arrow" aria-hidden="true">›</span>' +
+          '</div>' +
+          '<div class="settings-restore-row" data-settings-restore="performance" data-desc-default="仅重置性能档位、后台策略与封面粒子分辨率" role="button" tabindex="0">' +
+            '<div class="settings-row-main">' +
+              '<div class="settings-row-label">仅恢复性能</div>' +
+              '<div class="settings-row-desc">仅重置性能档位、后台策略与封面粒子分辨率</div>' +
+            '</div>' +
+            '<span class="settings-link-arrow" aria-hidden="true">›</span>' +
+          '</div>' +
         '</div>' +
-        '<div id="settings-cache-list"></div>' +
+      '</div>' +
+      '<div class="settings-group settings-fold" id="settings-cache-group">' +
+        '<button type="button" class="settings-fold-head" aria-expanded="false">' +
+          '<div class="settings-fold-head-main">' +
+            '<div class="settings-group-title">缓存与磁盘管理</div>' +
+            '<div class="settings-fold-hint" id="settings-cache-fold-hint">统计中…</div>' +
+          '</div>' +
+          '<span class="settings-fold-arrow" aria-hidden="true">›</span>' +
+        '</button>' +
+        '<div class="settings-fold-body">' +
+          '<div class="settings-cache-summary">' +
+            '<span id="settings-cache-total">统计中…</span>' +
+            '<button type="button" class="settings-mini-btn" id="settings-cache-refresh">刷新</button>' +
+          '</div>' +
+          '<div id="settings-cache-list"></div>' +
+        '</div>' +
       '</div>' +
       '<div class="settings-group">' +
         '<div class="settings-group-title">快捷入口</div>' +
@@ -23070,8 +23213,17 @@ function ensureAppSettingsModal() {
       closeAppSettings();
       return;
     }
+    var foldHead = e.target.closest('.settings-fold-head');
+    if (foldHead) {
+      toggleSettingsFold(foldHead);
+      return;
+    }
     var trayRow = e.target.closest('#settings-close-to-tray-row');
     if (trayRow) toggleCloseToTraySetting();
+    var skipSplashRow = e.target.closest('#settings-skip-splash-row');
+    if (skipSplashRow) toggleSkipSplashSetting();
+    var autoGuideRow = e.target.closest('#settings-auto-visual-guide-row');
+    if (autoGuideRow) toggleAutoVisualGuideSetting();
     var loginRow = e.target.closest('[data-login-provider]');
     if (loginRow && !loginRow.classList.contains('locked')) toggleLoginProviderSetting(loginRow.getAttribute('data-login-provider'));
     var restoreRow = e.target.closest('[data-settings-restore]');
@@ -23103,6 +23255,17 @@ function ensureAppSettingsModal() {
       }
     });
   }
+  ['settings-skip-splash-row', 'settings-auto-visual-guide-row'].forEach(function(id){
+    var row = modal.querySelector('#' + id);
+    if (!row) return;
+    row.addEventListener('keydown', function(e){
+      if (e.code === 'Enter' || e.code === 'Space') {
+        e.preventDefault();
+        if (id === 'settings-skip-splash-row') toggleSkipSplashSetting();
+        else toggleAutoVisualGuideSetting();
+      }
+    });
+  });
   var hotkeyLink = modal.querySelector('#settings-open-hotkeys');
   if (hotkeyLink) {
     hotkeyLink.addEventListener('keydown', function(e){
@@ -23132,6 +23295,14 @@ function ensureAppSettingsModal() {
       }
     });
   });
+  modal.querySelectorAll('.settings-fold-head').forEach(function(head){
+    head.addEventListener('keydown', function(e){
+      if (e.code === 'Enter' || e.code === 'Space') {
+        e.preventDefault();
+        toggleSettingsFold(head);
+      }
+    });
+  });
   return modal;
 }
 function renderAppSettings() {
@@ -23141,6 +23312,18 @@ function renderAppSettings() {
     var trayOn = !!appSettingsState.closeToTray;
     trayRow.classList.toggle('on', trayOn);
     trayRow.setAttribute('aria-pressed', trayOn ? 'true' : 'false');
+  }
+  var skipSplashRow = document.getElementById('settings-skip-splash-row');
+  if (skipSplashRow) {
+    var skipOn = !!appSettingsState.skipSplashOnStartup;
+    skipSplashRow.classList.toggle('on', skipOn);
+    skipSplashRow.setAttribute('aria-pressed', skipOn ? 'true' : 'false');
+  }
+  var autoGuideRow = document.getElementById('settings-auto-visual-guide-row');
+  if (autoGuideRow) {
+    var guideOn = appSettingsState.autoVisualGuide !== false;
+    autoGuideRow.classList.toggle('on', guideOn);
+    autoGuideRow.setAttribute('aria-pressed', guideOn ? 'true' : 'false');
   }
   var visibility = getLoginProviderVisibility();
   LOGIN_PROVIDER_KEYS.forEach(function(key){
@@ -23160,12 +23343,15 @@ function renderAppSettings() {
         : '控制登录弹窗与账号页的入口显示';
     }
   });
+  updateSettingsLoginFoldHint();
+  updateSettingsRestoreFoldHint();
 }
 function loadAppSettings() {
   var api = getDesktopWindowApi && getDesktopWindowApi();
   if (!api || typeof api.getAppSettings !== 'function') {
     mergeAppSettingsState(readAppSettingsLocal());
     appSettingsLoaded = true;
+    syncStartupSettingsMirrors();
     renderAppSettings();
     applyLoginProviderVisibility({ updateLoginUi: false });
     return Promise.resolve();
@@ -23173,11 +23359,13 @@ function loadAppSettings() {
   return api.getAppSettings().then(function(res){
     mergeAppSettingsState(res && res.settings ? res.settings : {});
     appSettingsLoaded = true;
+    syncStartupSettingsMirrors();
     renderAppSettings();
     applyLoginProviderVisibility({ updateLoginUi: false });
   }).catch(function(){
     mergeAppSettingsState(readAppSettingsLocal());
     appSettingsLoaded = true;
+    syncStartupSettingsMirrors();
     renderAppSettings();
     applyLoginProviderVisibility({ updateLoginUi: false });
   });
@@ -23186,6 +23374,22 @@ function toggleCloseToTraySetting() {
   var next = !appSettingsState.closeToTray;
   persistAppSettings({ closeToTray: next }).then(function(){
     showToast(appSettingsState.closeToTray ? '已开启：关闭后保留到托盘' : '已关闭：关闭后直接退出');
+  }).catch(function(){
+    showToast('设置保存失败');
+  });
+}
+function toggleSkipSplashSetting() {
+  var next = !appSettingsState.skipSplashOnStartup;
+  persistAppSettings({ skipSplashOnStartup: next }).then(function(){
+    showToast(next ? '已开启：下次启动将跳过开屏动画' : '已关闭：下次启动将播放开屏动画');
+  }).catch(function(){
+    showToast('设置保存失败');
+  });
+}
+function toggleAutoVisualGuideSetting() {
+  var next = appSettingsState.autoVisualGuide === false;
+  persistAppSettings({ autoVisualGuide: next }).then(function(){
+    showToast(next ? '已开启：启动时将自动显示视觉引导' : '已关闭：启动时不再自动弹出视觉引导');
   }).catch(function(){
     showToast('设置保存失败');
   });
@@ -26038,6 +26242,7 @@ function markVisualGuideSeen() {
   try { localStorage.setItem(VISUAL_GUIDE_SEEN_STORE_KEY, '1'); } catch (e) {}
 }
 function maybeRunStartupVisualGuide(source) {
+  if (source !== 'manual' && !readAutoVisualGuidePreference()) return false;
   if (visualGuideWasSeen() || visualGuideActive || immersiveMode || playing) return false;
   if (source !== 'manual' && !hasAnyPlatformLogin()) return false;
   setTimeout(function(){
@@ -27043,7 +27248,8 @@ var splashSoundPlayed = false;
 var splashAudioCtx = null;
 var splashSoundFallbackArmed = false;
 var splashTimer = null;
-var reduceSplashMotion = false;
+var splashSkipFastPath = !!readSkipSplashPreference();
+var reduceSplashMotion = splashSkipFastPath;
 var splashReadyToEnter = false;
 
 function splashClamp01(v) { return Math.max(0, Math.min(1, v)); }
@@ -27244,6 +27450,8 @@ function drawMineradioSplashWebgl(elapsed) {
 (function initMineradioSplashCanvas() {
   splashCanvas = document.getElementById('splash-canvas');
   if (!splashCanvas) return;
+  // 跳过开屏时不初始化 WebGL/2D 开屏画布，避免与主粒子画布抢 GPU
+  if (splashSkipFastPath) return;
   if (!reduceSplashMotion && initMineradioSplashWebgl(splashCanvas)) {
     splashCtx = null;
   } else {
@@ -27563,13 +27771,57 @@ function armSplashSoundFallback() {
   document.addEventListener('keydown', unlock, true);
 }
 
-function dismissSplash() {
+function finishSplashReveal() {
+  markAppPerf('home-revealed');
+  try { document.documentElement.classList.remove('skip-splash-preload'); } catch (e) {}
+  var runPostReveal = function(){
+    var homeShown = updateEmptyHomeVisibility({ forceLoad: true });
+    if (!homeShown && shouldForceEmptyHomeAfterSplash()) {
+      homeSuppressed = false;
+      homeForcedOpen = true;
+      homeShown = updateEmptyHomeVisibility({ forceLoad: true });
+    }
+    var runGuides = function(){
+      var guideStarted = maybeRunStartupVisualGuide('splash');
+      if (!guideStarted && !hasAnyPlatformLogin()) maybeRunStartupLoginGuide('splash');
+      else if (!guideStarted && !homeShown) maybeRunStartupLoginGuide('splash');
+      setTimeout(maybeShowUploadTipOnce, 5200);
+    };
+    // 跳过开屏时延后引导/登录提示，让首帧先稳定
+    if (splashSkipFastPath) setTimeout(runGuides, 520);
+    else runGuides();
+  };
+  if (splashSkipFastPath) {
+    setTimeout(runPostReveal, 48);
+    return;
+  }
+  requestAnimationFrame(function(){
+    requestAnimationFrame(runPostReveal);
+  });
+}
+
+function dismissSplash(opts) {
+  opts = opts || {};
   var s = document.getElementById('splash');
   if (!s || s.classList.contains('hide') || s.classList.contains('exiting')) return;
+  var instant = !!opts.instant || splashSkipFastPath;
   markAppPerf('splash-dismiss');
   if (splashTimer) { clearTimeout(splashTimer); splashTimer = null; }
   splashReadyToEnter = false;
+  splashAnimating = false;
   s.classList.remove('ready');
+  if (instant) {
+    document.body.classList.add('splash-instant-exit');
+    document.body.classList.remove('splash-active', 'splash-revealing');
+    s.classList.add('exiting', 'hide', 'instant-exit');
+    s.style.transition = 'none';
+    s.style.opacity = '0';
+    s.style.visibility = 'hidden';
+    s.style.pointerEvents = 'none';
+    if (s.parentNode) s.style.display = 'none';
+    finishSplashReveal();
+    return;
+  }
   if (typeof shouldUseIdleWallpaperPreview === 'function'
     ? shouldUseIdleWallpaperPreview(true)
     : (typeof shouldShowEmptyHomeAfterSplash === 'function' && shouldShowEmptyHomeAfterSplash())) {
@@ -27591,22 +27843,8 @@ function dismissSplash() {
     splashAnimating = false;
     document.body.classList.remove('splash-active');
     document.body.classList.remove('splash-revealing');
-    markAppPerf('home-revealed');
     if (s && s.parentNode) s.style.display = 'none';
-    requestAnimationFrame(function(){
-      var homeShown = updateEmptyHomeVisibility({ forceLoad: true });
-      if (!homeShown && shouldForceEmptyHomeAfterSplash()) {
-        homeSuppressed = false;
-        homeForcedOpen = true;
-        homeShown = updateEmptyHomeVisibility({ forceLoad: true });
-      }
-      requestAnimationFrame(function(){
-        var guideStarted = maybeRunStartupVisualGuide('splash');
-        if (!guideStarted && !hasAnyPlatformLogin()) maybeRunStartupLoginGuide('splash');
-        else if (!guideStarted && !homeShown) maybeRunStartupLoginGuide('splash');
-        setTimeout(maybeShowUploadTipOnce, 5200);
-      });
-    });
+    finishSplashReveal();
   }, 1180);
 }
 
@@ -27626,8 +27864,19 @@ document.addEventListener('DOMContentLoaded', function(){
   var s = document.getElementById('splash');
   if (!s) return;
   markAppPerf('dom-content-loaded');
-  armSplashSoundFallback();
-  prewarmHomeWallpaperPreview();
+  if (!readSkipSplashPreference()) {
+    armSplashSoundFallback();
+    prewarmHomeWallpaperPreview();
+  }
+  // 设置项：跳过开屏动画，下次启动直接进入主界面（瞬时路径，无退出动画）
+  if (readSkipSplashPreference()) {
+    splashSoundPlayed = true;
+    splashSkipFastPath = true;
+    reduceSplashMotion = true;
+    s.classList.add('reduce-motion');
+    dismissSplash({ instant: true });
+    return;
+  }
   function requestSplashEnter() {
     playMineradioIntroSound();
     if (splashReadyToEnter) dismissSplash();
